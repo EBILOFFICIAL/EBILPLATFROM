@@ -24,7 +24,7 @@ module.exports = {
         { title: 'Your score updates', body: 'Every verified event is sealed in a hash-chained ledger and moves your score within seconds, with an as-of timestamp on every report.' },
       ],
       engine: [
-        { title: 'Employee Verification', body: 'PAN-linked identity with HMAC de-duplication, employer-signed employment records and consent-logged checks.', icon: 'ShieldCheck' },
+        { title: 'Employee Verification', body: 'PAN-linked identity with HMAC de-duplication, employer-signed employment records and fully logged score checks.', icon: 'ShieldCheck' },
         { title: 'Fraud Detection', body: 'Duplicate PAN/email/mobile attempts, near-duplicate identities, overlapping employment and rating-pattern outliers.', icon: 'ScanSearch' },
         { title: 'Reputation Score', body: 'Configurable, versioned scoring from evaluations, exits, offers and tenure, reproducible by replaying the ledger.', icon: 'Gauge' },
         { title: 'AI Hiring Insights', body: 'Advisory-only signals to help recruiters focus. Never auto-rejects a candidate. (Coming in Phase 3.)', icon: 'Sparkles' },
@@ -32,13 +32,13 @@ module.exports = {
       forEmployers: ['Consent-based candidate reports in minutes', 'Notice-period and rehire eligibility from sealed exit records', 'Quarterly evaluations with anti-abuse controls', 'Score-gated job posts and applicant pipeline'],
       forEmployees: ['Own a portable, verified career identity', 'See, rebut and dispute anything recorded about you', 'Easy Apply to score-gated jobs with one click', 'Control who sees your report and for how long'],
       testimonials: [
-        { quote: 'We cut background-check turnaround from two weeks to a day, and candidates appreciate the consent-first flow.', name: 'Head of Talent', company: 'Illustrative mid-size IT services firm' },
+        { quote: 'We cut background-check turnaround from two weeks to a day, and candidates appreciate seeing exactly who viewed their score.', name: 'Head of Talent', company: 'Illustrative mid-size IT services firm' },
         { quote: 'For the first time I could see exactly what a previous employer said about my exit, and add my side.', name: 'Senior Analyst', company: 'Illustrative EIBIL member' },
         { quote: 'The no-show and notice-period signals alone changed how we plan joining dates.', name: 'HR Director', company: 'Illustrative manufacturing group' },
       ],
       faq: [
         { q: 'What is the EIBIL score?', a: 'A verified employment reputation score between 300 and 950. New PAN-verified profiles start at a baseline of 890, and the score moves only through verified employer events and published rules.' },
-        { q: 'Can an employer see my report without my permission?', a: 'No. Every report requires your recorded consent (on-demand, OTP-based or pre-granted when you apply to a job) and every view is logged and visible to you.' },
+        { q: 'Can an employer see my report without my permission?', a: 'No. Verified employers can view your score instantly, and you are notified every time an organisation views it. Every view is logged and visible to you.' },
         { q: 'Is my salary visible to employers?', a: 'Never. Salary and CTC are stored only if you choose, and are never shown to other employers.' },
         { q: 'What if an evaluation is unfair?', a: 'You can raise a dispute with evidence. Disputed evaluations are held out of your score until an admin resolves them with a written outcome.' },
         { q: 'Why PAN?', a: 'PAN guarantees one person = one profile. We store only an encrypted PAN and a one-way hash; screens only ever show the masked form (ABCDE****F).' },
@@ -47,7 +47,7 @@ module.exports = {
       compliance: ['DPDP Act 2023 aligned consent & rights', 'AES-256-GCM encrypted PAN at rest', 'SHA-256 hash-chained, append-only ledger', 'ISO 27001 certification in progress (not yet certified)'],
     },
   },
-  about: { title: 'About EIBIL', content: { heading: 'Trust, verified', body: 'EIBIL (Employment Integrity & Background Intelligence League) is building India’s employment score bureau. We give every professional a verified, portable career identity and give employers a consent-first way to hire on facts rather than guesswork.\n\nOur principles: one person, one PAN, one profile; every record append-only and tamper-evident; employees can always see, rebut and dispute; employers verify, rate and are held accountable through the Employer Trust Index.' } },
+  about: { title: 'About EIBIL', content: { heading: 'Trust, verified', body: 'EIBIL (Employment Integrity & Background Intelligence League) is building India’s employment score bureau. We give every professional a verified, portable career identity and give employers an instant, transparent way to hire on facts rather than guesswork.\n\nOur principles: one person, one PAN, one profile; every record append-only and tamper-evident; employees can always see, rebut and dispute; employers verify, rate and are held accountable through the Employer Trust Index.' } },
   platform: { title: 'Platform', content: { heading: 'One platform, three panels', body: 'Career Hub for professionals, Employer Console for HR teams and an Admin Console that governs verification, scoring, disputes, billing and content.' } },
   'score-system': { title: 'Score System', content: { heading: 'How the EIBIL score works', body: 'Composite = weighted average of Performance (30%), Professionalism (20%), Reliability (25%) and Conduct (25%). Evaluation delta = (Composite − 75) × 0.6, capped at ±25 per cycle and weighted by employer trust tier and recency. Exit assessments, verified no-shows, tenure milestones and dispute outcomes apply configurable boosts or penalties. Negative events decay after 36 months (serious fraud never decays).' } },
   'how-it-works': { title: 'How It Works', content: { heading: 'From registration to a living score', body: '1. Register and verify your email (OTP) and PAN.\n2. Declare employment; your employer verifies and seals it.\n3. Employers rate you quarterly; offers, exits and notice periods are recorded with your review rights.\n4. Your score updates on every verified event, and scheduled jobs keep it fresh.' } },

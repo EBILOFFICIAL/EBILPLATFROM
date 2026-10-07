@@ -1,6 +1,8 @@
-import { LayoutDashboard, Users, Building2, ScanFace, ShieldAlert, Gauge, Gavel, FileSignature, DoorOpen, Briefcase, CreditCard, FileText, KeyRound, ScrollText, Settings, LifeBuoy, Megaphone, Timer } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, ScanFace, ShieldAlert, Gauge, Gavel, FileSignature, DoorOpen, Briefcase, CreditCard, FileText, KeyRound, ScrollText, Settings, LifeBuoy, Megaphone, Timer, Calculator, ListChecks, Database, Activity } from 'lucide-react';
 import DashboardShell from '../components/layout/DashboardShell';
 import { useAuth } from '../hooks/useAuth';
+import { RecordProvider } from '../context/RecordContext';
+import RecordDrawer from '../components/admin/RecordDrawer';
 
 const NAV = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -10,7 +12,9 @@ const NAV = [
   { to: '/admin/verification', label: 'Verification queue', icon: ScanFace },
   { to: '/admin/fraud', label: 'Duplicate & fraud', icon: ShieldAlert },
   { section: 'Score & records' },
-  { to: '/admin/score', label: 'Score engine', icon: Gauge },
+  { to: '/admin/algorithm', label: 'Score algorithm', icon: Calculator },
+  { to: '/admin/questionnaire', label: 'Questionnaire', icon: ListChecks },
+  { to: '/admin/score', label: 'Versions & adjustments', icon: Gauge },
   { to: '/admin/score-jobs', label: 'Score refresh jobs', icon: Timer },
   { to: '/admin/disputes', label: 'Evaluations & disputes', icon: Gavel },
   { to: '/admin/offers', label: 'Offers & trust', icon: FileSignature },
@@ -21,6 +25,8 @@ const NAV = [
   { to: '/admin/cms', label: 'CMS', icon: FileText },
   { section: 'Governance' },
   { to: '/admin/roles', label: 'Roles & permissions', icon: KeyRound },
+  { to: '/admin/activity', label: 'Admin activity', icon: Activity },
+  { to: '/admin/data', label: 'Data explorer', icon: Database },
   { to: '/admin/audit', label: 'Audit & ledger', icon: ScrollText },
   { to: '/admin/settings', label: 'System settings', icon: Settings },
   { to: '/admin/tickets', label: 'Support tickets', icon: LifeBuoy },
@@ -29,5 +35,5 @@ const NAV = [
 
 export default function AdminLayout() {
   const { user } = useAuth();
-  return <DashboardShell nav={NAV} title="Admin Console" badge={<span>Signed in as <b className="text-ink">{user?.adminRole?.name}</b></span>} />;
+  return (<RecordProvider><DashboardShell nav={NAV} title="Admin Console" badge={<span>Signed in as <b className="text-ink">{user?.adminRole?.name}</b></span>} /><RecordDrawer /></RecordProvider>);
 }

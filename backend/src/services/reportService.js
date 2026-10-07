@@ -17,6 +17,7 @@ const consent = require('./consentService');
 const settings = require('./settingsService');
 const audit = require('./auditService');
 const ledger = require('./ledgerService');
+const notify = require('./notificationService');
 
 const avg = (rows, k) => (rows.length ? Math.round(rows.reduce((a, r) => a + r[k], 0) / rows.length) : null);
 
@@ -67,17 +68,33 @@ async function build(profileId, viewer = {}) {
 }
 
 async function generateForEmployer(employer, user, employeeId, req) {
-  const grant = await consent.activeConsent(employer._id, employeeId);
-  if (!grant) throw AppError.forbidden('Candidate consent is required before viewing this report');
+  const profile = await EmployeeProfile.findById(employeeId).lean();
+  if (!profile) throw AppError.notFound('Candidate profile not found');
   const cost = await settings.get('creditPerReport');
   const fresh = await Employer.findOneAndUpdate({ _id: employer._id, creditBalance: { $gte: cost } }, { $inc: { creditBalance: -cost } }, { new: true });
   if (!fresh) throw new AppError('Insufficient verification credits. Please purchase credits', 402);
   await CreditTransaction.create({ employerId: employer._id, amount: -cost, balanceAfter: fresh.creditBalance, reason: 'Candidate report', refId: String(employeeId), by: user._id });
   const snapshot = await build(employeeId, { employerId: employer._id });
-  const check = await VerificationCheck.create({ employerId: employer._id, employeeId, viewerUserId: user._id, consentId: grant._id, creditsUsed: cost, snapshot, verifyToken: randomToken(12) });
+  const check = await VerificationCheck.create({ employerId: employer._id, employeeId, viewerUserId: user._id, creditsUsed: cost, snapshot, verifyToken: newVerifyCode() });
   await audit.log({ req, action: 'report.viewed', entityType: 'VerificationCheck', entityId: check._id, subjectEmployeeId: employeeId });
+  if (profile.userId) {
+    await notify.notify(profile.userId, {
+      type: 'view', link: '/employee/consents', email: true, meta: { employerId: employer._id, companyName: employer.companyName, checkId: check._id },
+      title: `${employer.companyName} viewed your EIBIL score`,
+      body: `${employer.companyName} viewed your verified EIBIL score and report on ${new Date().toLocaleString('en-IN')}.`,
+    });
+  }
   return check;
 }
+
+async function lookupForEmployer(employer, user, query, req) {
+  const profile = await consent.findCandidate(query);
+  if (!profile) throw AppError.notFound('No EIBIL profile found for this PAN / email / EIBIL ID');
+  if (!profile.panVerified) throw AppError.badRequest('This candidate has not completed PAN verification yet, so no score is available');
+  return generateForEmployer(employer, user, profile._id, req);
+}
+
+const listForEmployer = (employerId) => VerificationCheck.find({ employerId }).populate('employeeId', 'fullName eibilId currentScore band').populate('viewerUserId', 'name').select('-snapshot').sort({ createdAt: -1 }).limit(100).lean();
 
 async function getForEmployer(employer, checkId, req) {
   const check = await VerificationCheck.findOne({ _id: checkId, employerId: employer._id }).lean();
@@ -197,4 +214,4 @@ async function publicVerify(token) {
   };
 }
 
-module.exports = { build, generateForEmployer, getForEmployer, viewers, pdf, publicVerify, selfReport };
+module.exports = { build, generateForEmployer, lookupForEmployer, listForEmployer, getForEmployer, viewers, pdf, publicVerify, selfReport };

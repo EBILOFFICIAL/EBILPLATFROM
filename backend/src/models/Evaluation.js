@@ -12,6 +12,7 @@ const schema = new mongoose.Schema({
   professionalism: dim,
   reliability: dim,
   conduct: dim,
+  answers: [{ _id: false, questionId: ObjectId, text: String, dimension: String, type: { type: String }, weight: Number, optionIndex: Number, answer: String, points: Number }],
   composite: Number,
   comments: { type: String, maxlength: 1000 },
   status: { type: String, enum: ['draft', 'submitted', 'held', 'accepted', 'disputed', 'removed'], default: 'draft' },

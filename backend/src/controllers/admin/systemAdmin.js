@@ -26,6 +26,7 @@ const resource = (Model, name, opts) => {
 };
 
 module.exports = {
+  questions: resource(require('../../models/Question'), 'Question', { searchFields: ['text'], defaultSort: { dimension: 1, order: 1 } }),
   plans: resource(Plan, 'Plan', { searchFields: ['name', 'code'], defaultSort: { sortOrder: 1 } }),
   coupons: resource(Coupon, 'Coupon', { searchFields: ['code'] }),
   payments: h(async (req, res) => { const r = await crud(Payment, { populate: [{ path: 'employerId', select: 'companyName gstin' }, { path: 'planId', select: 'name' }] }).list(req.query); ok(res, r.items, 'OK', r.meta); }),

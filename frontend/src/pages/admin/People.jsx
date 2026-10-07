@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Users, Building2, ScanFace, ShieldAlert, Gavel, IndianRupee, Briefcase, Gauge } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import ResourcePage from '../../components/admin/ResourcePage';
+import { AdminActivityFeed } from './DataExplorer';
 import { PageHeader, Panel, StatCard } from '../../components/common/Layout';
 import StatusBadge from '../../components/common/StatusBadge';
 import Button from '../../components/common/Button';
@@ -24,6 +25,7 @@ export function AdminDashboard() {
     </div>
     <div className="mt-6 grid gap-6 lg:grid-cols-2">
       <Panel title="Score distribution"><div className="h-64 p-4"><ResponsiveContainer><BarChart data={d?.scoreDistribution || []}><XAxis dataKey="bucket" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="count" fill="#D7141A" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel>
+      <div className="lg:col-span-2"><AdminActivityFeed compact /></div>
       <Panel title="Application funnel & provider costs"><div className="space-y-2 p-5 text-sm">{(d?.funnel || []).map((f) => <div key={f._id} className="flex justify-between"><StatusBadge status={f._id} /><b>{f.count}</b></div>)}<div className="border-t pt-3 text-slate-500">PAN checks: {d?.providerCosts?.panChecks} (est. {fmtInr(d?.providerCosts?.estimatedPanCostInr)}) · Messages sent: {d?.providerCosts?.emails}</div></div></Panel>
     </div></div>);
 }

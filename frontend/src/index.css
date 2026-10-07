@@ -26,4 +26,6 @@ h1, h2, h3, h4, .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
 
 .grid-bg { background-image: linear-gradient(#E2E8F0 1px, transparent 1px), linear-gradient(90deg, #E2E8F0 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(ellipse at top, black 20%, transparent 70%); }
 .fade-up { animation: fadeUp .6s cubic-bezier(.2,.7,.2,1) both; }
+.drawer-in { animation: drawerIn .28s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes drawerIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }

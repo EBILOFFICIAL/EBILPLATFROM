@@ -3,6 +3,7 @@ const logger = require('../config/logger');
 
 async function log({ req, actor, action, entityType, entityId, before, after, meta, subjectEmployeeId }) {
   const user = actor || req?.user;
+  if (req) req._audited = true;
   try {
     return await AuditLog.create({
       actorId: user?._id,

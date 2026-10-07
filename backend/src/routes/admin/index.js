@@ -15,6 +15,20 @@ const analytics = require('../../controllers/admin/analyticsAdmin');
 const verification = require('../../controllers/admin/verificationAdmin');
 const oversight = require('../../controllers/admin/oversightAdmin');
 const system = require('../../controllers/admin/systemAdmin');
+const dataAdmin = require('../../controllers/admin/dataAdmin');
+const audit$ = require('../../services/auditService');
+
+const SENSITIVE = /password|secret|token|otp|code/i;
+const trackAdmin = (req, res, next) => {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    res.on('finish', () => {
+      if (res.statusCode >= 400 || req._audited) return;
+      const body = Object.fromEntries(Object.entries(req.body || {}).map(([k, v]) => [k, SENSITIVE.test(k) ? '***' : v]));
+      audit$.log({ req, action: `admin.${req.method.toLowerCase()}`, entityType: req.path.split('/')[1], entityId: req.params?.id || req.path.split('/')[2], meta: { path: req.originalUrl, body } });
+    });
+  }
+  next();
+};
 
 const crudRoutes = (path, ctrl, perm) => {
   router.get(path, p(perm), ctrl.list);
@@ -24,7 +38,16 @@ const crudRoutes = (path, ctrl, perm) => {
   router.delete(`${path}/:id`, p(perm), ctrl.remove);
 };
 
-router.use(authenticate, requireRole('admin'));
+router.use(authenticate, requireRole('admin'), trackAdmin);
+router.get('/data', p('users.view'), dataAdmin.models);
+router.get('/data/:model', p('users.view'), dataAdmin.list);
+router.get('/data/:model/:id', p('users.view'), dataAdmin.get);
+router.put('/data/:model/:id', p('data.manage'), dataAdmin.update);
+router.delete('/data/:model/:id', p('data.manage'), dataAdmin.remove);
+router.get('/activity', p('dashboard.view'), dataAdmin.activity);
+router.get('/score/algorithm', p('score.view'), dataAdmin.algorithm);
+router.post('/score-config/apply', p('score.configure'), dataAdmin.applyConfig);
+router.post('/score-config/:id/activate', p('score.configure'), dataAdmin.activate);
 router.get('/analytics', p('dashboard.view'), analytics.dashboard);
 
 router.get('/users', p('users.view'), users.list);
@@ -95,6 +118,7 @@ router.put('/jobs/:id', p('jobs.manage'), oversight.moderateJob);
 router.get('/applications', p('jobs.manage'), oversight.applications);
 
 crudRoutes('/plans', system.plans, 'billing.manage');
+crudRoutes('/questions', system.questions, 'score.configure');
 crudRoutes('/coupons', system.coupons, 'billing.manage');
 router.get('/payments', p('billing.view'), system.payments);
 router.post('/payments/:id/refund', p('billing.manage'), system.refund);

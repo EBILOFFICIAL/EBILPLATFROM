@@ -13,20 +13,21 @@ module.exports = {
   updateProfile: h(async (req, res) => ok(res, await employer.updateProfile(req.employer, req.body), 'Company profile updated')),
   dashboard: h(async (req, res) => ok(res, await employer.dashboard(req.employer))),
   verifyCandidate: h(async (req, res) => {
-    const result = await consent.request(req.employer, req.body, req.ip);
-    created(res, result, result.alreadyGranted ? 'Consent already on record. You can generate the report' : 'Consent request sent to candidate');
+    created(res, await reports.lookupForEmployer(req.employer, req.user, req.body.query, req), 'Report generated. The candidate has been notified');
   }),
   bulkVerify: h(async (req, res) => {
     const rows = String(req.file?.buffer || '').split(/\r?\n/).map((l) => l.split(',')[0].trim()).filter(Boolean).slice(0, 200);
     const results = [];
     for (const query of rows) {
-      try { const r = await consent.request(req.employer, { query, mode: 'on_demand' }, req.ip); results.push({ query, status: r.alreadyGranted ? 'consent_on_record' : 'consent_requested' }); } catch (e) { results.push({ query, status: 'error', message: e.message }); }
+      try { const r = await reports.lookupForEmployer(req.employer, req.user, query, req); results.push({ query, status: 'viewed', reportId: r._id, score: r.snapshot.score.value, name: r.snapshot.identity.fullName }); } catch (e) { results.push({ query, status: 'error', message: e.message }); }
     }
     ok(res, results, `Processed ${results.length} rows`);
   }),
   consentOtp: h(async (req, res) => ok(res, await consent.verifyOtp(req.employer, req.params.id, req.body.code), 'Consent granted via OTP')),
   consents: h(async (req, res) => ok(res, await consent.listForEmployer(req.employer._id))),
   generateReport: h(async (req, res) => created(res, await reports.generateForEmployer(req.employer, req.user, req.body.employeeId, req), 'Report generated')),
+  reports: h(async (req, res) => ok(res, await reports.listForEmployer(req.employer._id))),
+  questionnaire: h(async (req, res) => ok(res, await require('../services/questionnaireService').active())),
   getReport: h(async (req, res) => ok(res, await reports.getForEmployer(req.employer, req.params.id, req))),
   employees: h(async (req, res) => ok(res, await employer.roster(req.employer, req.query.status))),
   addEmployee: h(async (req, res) => created(res, await employment.employerAdd(req.employer, req.user, req.body), 'Employee added')),

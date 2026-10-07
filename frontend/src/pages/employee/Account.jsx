@@ -27,26 +27,18 @@ export function Applications() {
 }
 
 export function Consents() {
-  const { data, loading, reload } = useFetch(() => employeeService.consents(), []);
+  const { data, loading } = useFetch(() => employeeService.consents(), []);
   const { data: privacy, reload: reloadPrivacy } = useFetch(() => employeeService.privacy(), []);
   const setPriv = (k, v) => run(employeeService.updatePrivacy({ [k]: v }), 'Privacy updated').then(reloadPrivacy);
   const exportData = async () => { const d = await employeeService.exportData(); const url = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' })); Object.assign(document.createElement('a'), { href: url, download: 'eibil-my-data.json' }).click(); };
   return (<div>
-    <PageHeader title="Consent & privacy" subtitle="Who accessed your report, active consents, and what employers can see." actions={<><Button variant="secondary" onClick={exportData} data-testid="export-data"><Download className="h-4 w-4" />Download my data</Button><Button variant="ghost" onClick={() => run(employeeService.requestDeletion())} data-testid="request-deletion"><Trash2 className="h-4 w-4" />Request deletion</Button></>} />
+    <PageHeader title="Privacy & profile views" subtitle="Verified employers can view your score instantly. You are notified every time an organisation views it, and this page lists them all." actions={<><Button variant="secondary" onClick={exportData} data-testid="export-data"><Download className="h-4 w-4" />Download my data</Button><Button variant="ghost" onClick={() => run(employeeService.requestDeletion())} data-testid="request-deletion"><Trash2 className="h-4 w-4" />Request deletion</Button></>} />
     {privacy && <Panel title="Visibility" className="mb-6"><div className="grid gap-4 p-5 sm:grid-cols-3">
       <Field type="checkbox" name="openToWork" label="Open to Work (discoverable in talent search)" value={privacy.openToWork} onChange={setPriv} testId="toggle-open-to-work" />
       <Field type="checkbox" name="showExactScore" label="Show exact score in talent search (else band only)" value={privacy.showExactScore} onChange={setPriv} testId="toggle-exact-score" />
       <Field type="checkbox" name="allowCurrentEmployerOfferView" label="Allow current employer to see accepted offers" value={privacy.allowCurrentEmployerOfferView} onChange={setPriv} testId="toggle-current-employer-offers" />
     </div></Panel>}
-    <Panel title="Consent requests" className="mb-6"><Table loading={loading} rows={data?.consents?.filter((c) => c.type === 'report_access')} testId="consents-table" columns={[
-      { title: 'Employer', render: (r) => r.requesterEmployerId?.companyName }, { title: 'Purpose', key: 'purpose' }, { title: 'Mode', key: 'mode' },
-      { title: 'Expires', render: (r) => fmtDate(r.expiresAt) }, { title: 'Status', render: (r) => <StatusBadge status={r.status} /> },
-      { title: '', render: (r) => (<div className="flex gap-2">
-        {r.status === 'pending' && <><Button size="sm" onClick={() => run(employeeService.respondConsent(r._id, true)).then(reload)} data-testid={`grant-consent-${r._id}`}>Grant</Button><Button size="sm" variant="secondary" onClick={() => run(employeeService.respondConsent(r._id, false)).then(reload)}>Deny</Button></>}
-        {r.status === 'granted' && <Button size="sm" variant="secondary" onClick={() => run(employeeService.revokeConsent(r._id)).then(reload)} data-testid={`revoke-consent-${r._id}`}>Revoke</Button>}
-      </div>) },
-    ]} /></Panel>
-    <Panel title="Who viewed my report"><Table rows={data?.viewers} testId="viewers-table" columns={[{ title: 'Employer', render: (r) => r.employerId?.companyName }, { title: 'Viewed', render: (r) => fmtDateTime(r.createdAt) }, { title: 'Credits', key: 'creditsUsed' }]} /></Panel>
+    <Panel title="Organisations that viewed my score" testId="viewers-panel"><Table loading={loading} rows={data?.viewers} testId="viewers-table" empty="No organisation has viewed your score yet. You'll be notified whenever one does." columns={[{ title: 'Organisation', render: (r) => <b>{r.employerId?.companyName}</b> }, { title: 'Viewed on', render: (r) => fmtDateTime(r.createdAt) }]} /></Panel>
   </div>);
 }
 

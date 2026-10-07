@@ -7,8 +7,8 @@ import Button from '../../components/common/Button';
 import Field from '../../components/common/Field';
 import FormModal from '../../components/common/FormModal';
 import ScoreGauge from '../../components/common/ScoreGauge';
-import { DevOtp } from '../auth/Login';
 import { useFetch } from '../../hooks/usePagination';
+import EvaluationForm from './EvaluationForm';
 import { employerService } from '../../services/employerService';
 import { fmtDate, fmtDateTime, label, run } from '../../utils/formatters';
 
@@ -45,27 +45,23 @@ export function ReportView({ report }) {
 }
 
 export function VerifyCandidate() {
-  const [form, setForm] = useState({ mode: 'on_demand' });
-  const [req, setReq] = useState(null);
-  const [code, setCode] = useState('');
+  const [query, setQuery] = useState('');
+  const [busy, setBusy] = useState(false);
   const [report, setReport] = useState(null);
-  const { data: consents, reload } = useFetch(() => employerService.consents(), []);
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const request = async (e) => { e.preventDefault(); const r = await run(employerService.verifyCandidate(form)); setReq(r.data); reload(); };
-  const generate = async (employeeId) => setReport((await run(employerService.generateReport(employeeId))).data);
-  return (<div><PageHeader title="Verify candidate" subtitle="Search by PAN (preferred), email or EIBIL ID. No report without recorded candidate consent; each report uses verification credits." />
-    <Panel><form onSubmit={request} className="grid gap-4 p-5 sm:grid-cols-4">
-      <div className="sm:col-span-2"><Field label="PAN / email / EIBIL ID" name="query" value={form.query} onChange={set} required testId="verify-query" /></div>
-      <Field label="Consent mode" name="mode" type="select" value={form.mode} onChange={set} options={[{ value: 'on_demand', label: 'Request in candidate app' }, { value: 'otp', label: 'OTP consent (candidate shares code)' }]} testId="verify-mode" />
-      <div className="self-end"><Button type="submit" className="w-full" data-testid="verify-request">Request consent</Button></div>
-    </form>
-    {req && <div className="flex flex-wrap items-end gap-3 border-t border-slate-100 p-5" data-testid="consent-request-result">
-      <StatusBadge status={req.consent.status} /><span className="text-sm">Candidate {req.eibilId}</span>
-      {req.consent.status === 'pending' && form.mode === 'otp' && (<><DevOtp code={req.devOtp} /><Field name="code" label="Consent OTP" value={code} onChange={(_, v) => setCode(v)} testId="consent-otp" /><Button onClick={async () => { await run(employerService.consentOtp(req.consent._id, code)); setReq({ ...req, consent: { ...req.consent, status: 'granted' } }); reload(); }} data-testid="consent-otp-submit">Verify OTP</Button></>)}
-      {req.consent.status === 'granted' && <Button onClick={() => generate(req.consent.employeeId)} data-testid="generate-report">Generate report (uses credits)</Button>}
-    </div>}</Panel>
+  const { data: history, reload } = useFetch(() => employerService.reports(), []);
+  const lookup = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    try { const r = await run(employerService.verifyCandidate({ query: query.trim() })); setReport(r.data); reload(); } catch { /* toast */ } finally { setBusy(false); }
+  };
+  const reopen = async (id) => setReport(await employerService.report(id));
+  return (<div><PageHeader title="Verify candidate" subtitle="Search by PAN (preferred), email or EIBIL ID to view the verified score and report instantly. Each new report uses 1 verification credit, and the candidate is notified that your organisation viewed their score." />
+    <Panel><form onSubmit={lookup} className="flex flex-wrap items-end gap-3 p-5">
+      <div className="min-w-[260px] flex-1"><Field label="PAN / email / EIBIL ID" name="query" value={query} onChange={(_, v) => setQuery(v)} required testId="verify-query" /></div>
+      <Button type="submit" loading={busy} data-testid="verify-request">View score (1 credit)</Button>
+    </form></Panel>
     {report && <ReportView report={report} />}
-    <Panel title="Consent log" className="mt-6"><Table rows={consents} testId="employer-consents-table" columns={[{ title: 'Candidate', render: (r) => `${r.employeeId?.fullName} (${r.employeeId?.eibilId})` }, { title: 'Mode', key: 'mode' }, { title: 'Status', render: (r) => <StatusBadge status={r.status} /> }, { title: 'Expires', render: (r) => fmtDate(r.expiresAt) }, { title: '', render: (r) => r.status === 'granted' && <Button size="sm" onClick={() => generate(r.employeeId._id)} data-testid={`report-${r._id}`}>View report</Button> }]} /></Panel>
+    <Panel title="Reports viewed" className="mt-6"><Table rows={history} testId="employer-reports-table" columns={[{ title: 'Candidate', render: (r) => <div><b>{r.employeeId?.fullName}</b><div className="text-xs text-slate-400">{r.employeeId?.eibilId}</div></div> }, { title: 'Score now', render: (r) => r.employeeId?.currentScore ?? '—' }, { title: 'Viewed by', render: (r) => r.viewerUserId?.name || '—' }, { title: 'When', render: (r) => fmtDateTime(r.createdAt) }, { title: 'Credits', key: 'creditsUsed' }, { title: '', render: (r) => <Button size="sm" variant="secondary" onClick={() => reopen(r._id)} data-testid={`report-${r._id}`}>Open report</Button> }]} /></Panel>
   </div>);
 }
 
@@ -91,13 +87,12 @@ export function EmployerEvaluations() {
   const { data, loading, reload } = useFetch(() => employerService.evaluations(), []);
   const { data: roster } = useFetch(() => employerService.employees('verified'), []);
   const [open, setOpen] = useState(false);
-  const dims = ['performance', 'professionalism', 'reliability', 'conduct'].map((n) => ({ name: n, label: `${n} (0-100)`, type: 'number', required: true }));
-  return (<div><PageHeader title="Quarterly evaluations" subtitle="Rate verified employees on four dimensions. Minimum tenure 30 days; one evaluation per employee per period; outliers are held for admin review." actions={<Button onClick={() => setOpen(true)} data-testid="new-evaluation">New evaluation</Button>} />
+  return (<div><PageHeader title="Quarterly evaluations" subtitle="Answer the EIBIL questionnaire for each verified employee. Answers are scored into four dimensions (performance, professionalism, reliability, conduct). Minimum tenure 30 days; one evaluation per employee per period; outliers are held for admin review." actions={<Button onClick={() => setOpen(true)} data-testid="new-evaluation">New evaluation</Button>} />
     <Panel><Table loading={loading} rows={data} testId="employer-evaluations-table" columns={[
       { title: 'Employee', render: (r) => r.employeeId?.fullName }, { title: 'Period', key: 'period' }, { title: 'Ratings', render: (r) => <span className="font-mono">{r.performance}/{r.professionalism}/{r.reliability}/{r.conduct}</span> },
       { title: 'Composite', key: 'composite' }, { title: 'Delta', key: 'appliedDelta' }, { title: 'Status', render: (r) => <><StatusBadge status={r.status} />{r.holdReason && <div className="mt-1 text-[11px] text-amber-700">{r.holdReason}</div>}</> },
       { title: '', render: (r) => r.status === 'draft' && <Button size="sm" onClick={() => run(employerService.updateEvaluation(r._id, { submit: true })).then(reload)} data-testid={`submit-eval-${r._id}`}>Submit</Button> },
     ]} /></Panel>
-    <FormModal open={open} onClose={() => setOpen(false)} title="New evaluation" testId="evaluation-modal" initial={{ submit: true }} fields={[{ name: 'employmentRecordId', label: 'Employee', type: 'select', required: true, full: true, options: (roster || []).map((r) => ({ value: r._id, label: `${r.employeeId?.fullName} – ${r.designation}` })) }, { name: 'period', label: 'Period (e.g. 2026-Q3, blank = current)' }, ...dims, { name: 'comments', label: 'Factual comments', type: 'textarea', full: true }, { name: 'submit', label: 'Submit now (uncheck to save draft)', type: 'checkbox', full: true }]} onSubmit={(f) => run(employerService.createEvaluation(Object.fromEntries(Object.entries(f).filter(([, v]) => v !== '' && v != null)))).then(() => setTimeout(reload, 800))} />
+    {open && <EvaluationForm roster={roster || []} onClose={() => setOpen(false)} onDone={() => setTimeout(reload, 800)} />}
   </div>);
 }

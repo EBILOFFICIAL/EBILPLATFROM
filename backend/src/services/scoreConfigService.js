@@ -7,6 +7,8 @@ const { ScoreAdjustment } = require('../models/misc');
 const AppError = require('../utils/AppError');
 const score = require('./scoreService');
 const scoreEvents = require('./scoreEventService');
+const ledger = require('./ledgerService');
+const EmployeeProfileModel = EmployeeProfile;
 
 const PARAMS = ['baseline', 'min', 'max', 'bands', 'weights', 'sensitivityK', 'neutralComposite', 'cycleCap', 'recencyHalfLifeMonths', 'trustTierWeights', 'exitRules', 'events'];
 
@@ -37,7 +39,6 @@ async function submit(id) {
 async function decide(id, user, approve) {
   const cfg = await ScoreConfig.findById(id);
   if (!cfg || cfg.status !== 'pending_approval') throw AppError.badRequest('Config is not pending approval');
-  if (String(cfg.createdBy) === String(user._id)) throw AppError.forbidden('Maker-checker: a different admin must approve this config');
   if (!approve) { cfg.status = 'rejected'; return cfg.save(); }
   await ScoreConfig.updateMany({ status: 'active' }, { status: 'archived' });
   Object.assign(cfg, { status: 'active', approvedBy: user._id, activatedAt: new Date() });
@@ -46,11 +47,29 @@ async function decide(id, user, approve) {
   return cfg;
 }
 
+// Admin changes apply instantly: new version becomes active, previous one archived, change sealed in the ledger
+async function applyConfig(data, user) {
+  const before = await score.getActiveConfig();
+  const draft = await createDraft(data, user);
+  await ScoreConfig.updateMany({ status: 'active' }, { status: 'archived' });
+  Object.assign(draft, { status: 'active', approvedBy: user._id, activatedAt: new Date() });
+  await draft.save();
+  score.clearConfigCache();
+  const changed = PARAMS.filter((p) => JSON.stringify(before[p]) !== JSON.stringify(draft[p]));
+  await ledger.append({ entityType: 'score_config', entityId: draft._id, action: 'activated', payload: { version: draft.version, previousVersion: before.version, changed, notes: data.notes, by: user._id } });
+  return { config: draft, changed, before: Object.fromEntries(changed.map((p) => [p, before[p]])) };
+}
+
+async function activate(id, user) {
+  const cfg = await ScoreConfig.findById(id).lean();
+  if (!cfg) throw AppError.notFound();
+  return applyConfig({ ...cfg, notes: `Activated from v${cfg.version}` }, user);
+}
+
 async function rollback(version, user) {
   const old = await ScoreConfig.findOne({ version }).lean();
   if (!old) throw AppError.notFound('Version not found');
-  const draft = await createDraft({ ...old, notes: `Rollback to v${version}` }, user);
-  return submit(draft._id);
+  return applyConfig({ ...old, notes: `Rollback to v${version}` }, user);
 }
 
 async function preview(id, n = 50) {
@@ -72,12 +91,18 @@ async function preview(id, n = 50) {
   return { version: cfgDoc.version, sampled: rows.length, avgChange, bandChanges: rows.filter((r) => r.currentBand !== r.simulatedBand).length, rows };
 }
 
-const requestAdjustment = (data, user) => ScoreAdjustment.create({ ...data, requestedBy: user._id });
+async function requestAdjustment(data, user) {
+  const q = String(data.employeeId || '').trim();
+  const profile = q.toUpperCase().startsWith('EIB-') ? await EmployeeProfileModel.findOne({ eibilId: q.toUpperCase() }) : await EmployeeProfileModel.findById(q).catch(() => null);
+  if (!profile) throw AppError.notFound('Employee profile not found (use EIBIL ID or profile id)');
+  const adj = await ScoreAdjustment.create({ employeeId: profile._id, delta: Number(data.delta), reason: data.reason, requestedBy: user._id, approvedBy: user._id, status: 'approved' });
+  await scoreEvents.applyScoreEvent({ employeeId: profile._id, delta: adj.delta, reason: `Manual adjustment: ${adj.reason}`, source: 'admin', refType: 'adjustment', refId: adj._id, idempotencyKey: `adjust:${adj._id}`, force: true });
+  return adj;
+}
 
 async function decideAdjustment(id, user, approve) {
   const adj = await ScoreAdjustment.findById(id);
   if (!adj || adj.status !== 'pending') throw AppError.badRequest('Adjustment is not pending');
-  if (String(adj.requestedBy) === String(user._id)) throw AppError.forbidden('Dual approval: a different admin must approve this adjustment');
   adj.status = approve ? 'approved' : 'rejected';
   adj.approvedBy = user._id;
   await adj.save();
@@ -87,4 +112,4 @@ async function decideAdjustment(id, user, approve) {
 
 const adjustments = () => ScoreAdjustment.find().populate('employeeId', 'fullName eibilId currentScore').populate('requestedBy approvedBy', 'name').sort({ createdAt: -1 }).lean();
 
-module.exports = { list, createDraft, updateDraft, submit, decide, rollback, preview, requestAdjustment, decideAdjustment, adjustments };
+module.exports = { PARAMS, applyConfig, activate, list, createDraft, updateDraft, submit, decide, rollback, preview, requestAdjustment, decideAdjustment, adjustments };

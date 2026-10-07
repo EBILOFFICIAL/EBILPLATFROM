@@ -21,6 +21,7 @@ const DEFAULT_BANDS = [
   { name: 'Poor', min: 300, max: 599 },
 ];
 const PERMISSIONS = [
+  'data.manage',
   'dashboard.view', 'users.view', 'users.manage', 'employers.view', 'employers.manage', 'verification.manage',
   'fraud.manage', 'score.view', 'score.configure', 'score.approve', 'score.adjust', 'disputes.manage',
   'evaluations.manage', 'offers.manage', 'separations.manage', 'references.manage', 'jobs.manage',

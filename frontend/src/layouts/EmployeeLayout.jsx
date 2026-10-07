@@ -15,7 +15,7 @@ const NAV = [
   { to: '/employee/jobs', label: 'Jobs', icon: Search },
   { to: '/employee/applications', label: 'Applications', icon: ListChecks },
   { section: 'Privacy' },
-  { to: '/employee/consents', label: 'Consent & privacy', icon: ShieldCheck },
+  { to: '/employee/consents', label: 'Privacy & views', icon: ShieldCheck },
   { to: '/employee/notifications', label: 'Notifications', icon: Bell },
   { to: '/employee/settings', label: 'Settings', icon: Settings },
 ];
