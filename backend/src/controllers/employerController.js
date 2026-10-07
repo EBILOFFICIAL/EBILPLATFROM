@@ -11,10 +11,22 @@ const AuditLog = require('../models/AuditLog');
 
 module.exports = {
   downloadResume: h(async (req, res) => {
-    if (!(await require('../services/resumeService').employerCanRead(req.employer._id, req.params.id))) throw AppError.forbidden('You can download a resume only for your applicants or candidates whose report you have viewed');
-    const resume = await require('../services/resumeService').read(req.params.id);
-    res.set({ 'Content-Type': resume.mimeType, 'Content-Disposition': `attachment; filename="${resume.fileName.replace(/"/g, '')}"`, 'Content-Length': resume.data.length });
+    const resumes = require('../services/resumeService');
+    if (!(await resumes.employerCanRead(req.employer._id, req.params.id))) throw AppError.forbidden('You can download a resume only for your applicants or candidates whose report you have viewed');
+    const resume = await resumes.read(req.params.id);
+    const inline = req.query.inline === '1' && resume.mimeType === 'application/pdf';
+    res.set({ 'Content-Type': resume.mimeType, 'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${resume.fileName.replace(/"/g, '')}"`, 'Content-Length': resume.data.length });
     res.send(resume.data);
+  }),
+  exportApplicants: h(async (req, res) => {
+    const { job, applicants } = await require('../services/jobService').applicants(req.employer, req.params.id);
+    const esc = (v) => { const t = String(v ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    const rows = [['Name', 'EIBIL ID', 'Email', 'Phone', 'City', 'Score at apply', 'Band', 'Status', 'Applied on', 'Resume']];
+    applicants.forEach((a) => rows.push([a.employeeId?.fullName, a.employeeId?.eibilId, a.employeeId?.email, a.employeeId?.phone, a.employeeId?.city, a.scoreAtApply, a.bandAtApply, a.status, new Date(a.createdAt).toLocaleString('en-IN'), a.resumeId?.fileName || '']));
+    const csv = `﻿${rows.map((r) => r.map(esc).join(',')).join('\n')}`;
+    await require('../services/auditService').log({ req, action: 'applicants.exported', entityType: 'Job', entityId: job._id, meta: { count: applicants.length } });
+    res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${job.title.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')}-applicants.csv"` });
+    res.send(csv);
   }),
   profile: h(async (req, res) => ok(res, { employer: req.employer, membership: req.membership })),
   updateProfile: h(async (req, res) => ok(res, await employer.updateProfile(req.employer, req.body), 'Company profile updated')),

@@ -14,6 +14,20 @@ export const employerService = {
   generateReport: (employeeId) => post('/reports', { employeeId }),
   report: (id) => g(`/reports/${id}`),
   reports: () => g('/reports'),
+  async exportApplicants(jobId, title = 'applicants') {
+    const res = await fetch(`${API_BASE}/employer/jobs/${jobId}/applicants/export`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } });
+    if (!res.ok) throw new Error((await res.json()).message);
+    const url = URL.createObjectURL(await res.blob());
+    const a = Object.assign(document.createElement('a'), { href: url, download: `${title.replace(/\s+/g, '-')}-applicants.csv` });
+    a.click(); URL.revokeObjectURL(url);
+  },
+  async previewResume(id) {
+    const res = await fetch(`${API_BASE}/employer/resumes/${id}/download?inline=1`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } });
+    if (!res.ok) throw new Error((await res.json()).message);
+    const blob = await res.blob();
+    if (res.headers.get('Content-Disposition')?.includes('inline')) { const url = URL.createObjectURL(blob); window.open(url, '_blank'); setTimeout(() => URL.revokeObjectURL(url), 60000); }
+    else { const name = res.headers.get('Content-Disposition')?.split('filename="')[1]?.replace(/"$/, '') || 'resume'; const url = URL.createObjectURL(blob); const a = Object.assign(document.createElement('a'), { href: url, download: name }); a.click(); URL.revokeObjectURL(url); }
+  },
   async downloadResume(id, fileName = 'resume') {
     const res = await fetch(`${API_BASE}/employer/resumes/${id}/download`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } });
     if (!res.ok) throw new Error((await res.json()).message);

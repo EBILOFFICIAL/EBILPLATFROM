@@ -48,6 +48,7 @@ router.post('/jobs', hiring, validate(jv.create), jobs.create);
 router.put('/jobs/:id', hiring, validate(jv.update), jobs.update);
 router.delete('/jobs/:id', hiring, jobs.remove);
 router.get('/jobs/:id/applicants', hiring, jobs.applicants);
+router.get('/jobs/:id/applicants/export', hiring, c.exportApplicants);
 router.patch('/applications/:id/status', hiring, validate(jv.status), jobs.setStatus);
 router.get('/invoices', billing.invoices);
 router.get('/notifications', h(async (req, res) => ok(res, await notifications.list(req.user._id))));
