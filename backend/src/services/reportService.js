@@ -183,7 +183,9 @@ async function pdf(profileId) {
 
 async function publicVerify(token) {
   const raw = String(token || '').trim();
-  const check = await VerificationCheck.findOne({ verifyToken: { $in: [raw, raw.toUpperCase()] } }).lean();
+  const c = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const normalized = c.length === 11 && c.startsWith('EIB') ? `EIB-${c.slice(3, 7)}-${c.slice(7)}` : raw.toUpperCase();
+  const check = await VerificationCheck.findOne({ verifyToken: { $in: [raw, normalized] } }).lean();
   if (!check) throw AppError.notFound('Report code not found or invalid');
   const integrity = await ledger.verifyIntegrity();
   const s = check.snapshot;

@@ -236,6 +236,140 @@ class TestEmployee:
         assert r.status_code == 200
 
 
+# ---------- Notifications (new feature: score change alerts) ----------
+
+class TestNotifications:
+    def test_list_filter_by_type_score(self, priya_session):
+        r = priya_session.get(f"{API}/employee/notifications?type=score", timeout=10)
+        assert r.status_code == 200
+        items = r.json().get("data", [])
+        assert isinstance(items, list)
+        for n in items:
+            assert n.get("type") == "score", f"type filter leaked: {n}"
+            # score notifications must carry meta with delta/oldScore/newScore
+            m = n.get("meta") or {}
+            assert "delta" in m and "oldScore" in m and "newScore" in m, f"missing meta: {n}"
+
+    def test_unread_count_shape(self, priya_session):
+        r = priya_session.get(f"{API}/employee/notifications/unread-count", timeout=10)
+        assert r.status_code == 200
+        data = r.json().get("data", r.json())
+        assert "count" in data and isinstance(data["count"], int)
+
+    def test_mark_single_then_mark_all(self, priya_session):
+        items = priya_session.get(f"{API}/employee/notifications", timeout=10).json().get("data", [])
+        unread = [n for n in items if not n.get("read")]
+        if unread:
+            nid = unread[0].get("_id") or unread[0].get("id")
+            r = priya_session.post(f"{API}/employee/notifications/read", json={"id": nid}, timeout=10)
+            assert r.status_code == 200
+            # verify that one is now read
+            items2 = priya_session.get(f"{API}/employee/notifications", timeout=10).json().get("data", [])
+            match = next((n for n in items2 if (n.get("_id") or n.get("id")) == nid), None)
+            assert match and match.get("read") is True, f"single mark did not persist: {match}"
+        # mark all
+        r = priya_session.post(f"{API}/employee/notifications/read", json={}, timeout=10)
+        assert r.status_code == 200
+        c = priya_session.get(f"{API}/employee/notifications/unread-count", timeout=10).json().get("data", {}).get("count")
+        assert c == 0, f"unread count non-zero after mark-all: {c}"
+
+
+# ---------- Report PDF + Public Verify (new feature) ----------
+
+class TestReportPdfVerify:
+    def test_pdf_download_and_verify_flow(self, priya_session):
+        r = priya_session.get(f"{API}/employee/report.pdf", timeout=30)
+        assert r.status_code == 200, f"pdf download failed: {r.status_code} {r.text[:200]}"
+        ct = r.headers.get("content-type", "")
+        assert "pdf" in ct.lower(), f"wrong content-type: {ct}"
+        assert r.content[:4] == b"%PDF", "not a valid PDF payload"
+        assert len(r.content) > 1000
+
+        # Each download creates a new verify code. Fetch another to ensure uniqueness.
+        r2 = priya_session.get(f"{API}/employee/report.pdf", timeout=30)
+        assert r2.status_code == 200
+        assert r2.content != r.content, "two PDF downloads were identical byte-for-byte"
+
+        # The code format EIB-XXXX-XXXX appears in the PDF bytes
+        code_match = re.search(rb"EIB-[A-Z0-9]{4}-[A-Z0-9]{4}", r.content)
+        assert code_match, "no EIB-XXXX-XXXX code found in PDF"
+        code = code_match.group(0).decode()
+
+        # Public verify by exact code
+        v = requests.get(f"{API}/public/report-verify/{code}", timeout=15)
+        assert v.status_code == 200, f"public verify failed: {v.status_code} {v.text}"
+        data = v.json().get("data", v.json())
+        assert data.get("authentic") is True
+        assert data.get("code") == code
+        assert "score" in data and "dimensions" in data and "employment" in data
+        assert data.get("ledgerValid") is True
+
+        # Lowercase code should also work
+        v2 = requests.get(f"{API}/public/report-verify/{code.lower()}", timeout=15)
+        assert v2.status_code == 200, f"lowercase code rejected: {v2.status_code} {v2.text}"
+
+    def test_invalid_verify_code(self):
+        v = requests.get(f"{API}/public/report-verify/EIB-ZZZZ-ZZZZ", timeout=10)
+        assert v.status_code in (400, 404), f"invalid code should 4xx: {v.status_code}"
+
+
+# ---------- Score event -> notification integration ----------
+
+class TestScoreEventTriggersNotification:
+    def test_evaluation_submit_creates_score_notification_for_priya(self, acme_session, priya_session):
+        # Capture unread count before
+        before = priya_session.get(f"{API}/employee/notifications/unread-count", timeout=10).json().get("data", {}).get("count", 0)
+        before_items = priya_session.get(f"{API}/employee/notifications?type=score", timeout=10).json().get("data", [])
+        before_ids = {(n.get("_id") or n.get("id")) for n in before_items}
+
+        # Find priya's employment record at Acme (needs employmentRecordId)
+        emps = acme_session.get(f"{API}/employer/employees", timeout=10).json().get("data", [])
+        priya_record = None
+        for e in emps:
+            emp = e.get("employeeId") or {}
+            name = (emp.get("fullName") or e.get("fullName") or "").lower()
+            if "priya" in name:
+                priya_record = e
+                break
+        if not priya_record:
+            pytest.skip(f"priya not found in acme roster: keys={[list((e.get('employeeId') or {}).keys()) for e in emps[:1]]}")
+        rec_id = priya_record.get("_id") or priya_record.get("id")
+
+        # Create + submit an evaluation
+        period = f"{time.strftime('%Y')}-Q{((time.localtime().tm_mon - 1) // 3) + 1}"
+        payload = {
+            "employmentRecordId": rec_id,
+            "period": period,
+            "performance": 85, "professionalism": 85, "reliability": 85, "conduct": 85,
+            "comments": "Automated test eval",
+        }
+        r = acme_session.post(f"{API}/employer/evaluations", json=payload, timeout=15)
+        if r.status_code not in (200, 201):
+            pytest.skip(f"could not create evaluation (likely duplicate for period): {r.status_code} {r.text}")
+        ev = r.json().get("data", r.json())
+        ev_id = ev.get("_id") or ev.get("id")
+        # Submit
+        rs = acme_session.put(f"{API}/employer/evaluations/{ev_id}", json={"submit": True}, timeout=15)
+        assert rs.status_code == 200, f"submit failed: {rs.status_code} {rs.text}"
+
+        # Allow async queue to process
+        for _ in range(10):
+            time.sleep(1)
+            after_items = priya_session.get(f"{API}/employee/notifications?type=score", timeout=10).json().get("data", [])
+            new_ones = [n for n in after_items if (n.get("_id") or n.get("id")) not in before_ids]
+            if new_ones:
+                break
+        assert new_ones, "no new score notification created after evaluation submit"
+        n = new_ones[0]
+        assert n.get("type") == "score"
+        m = n.get("meta") or {}
+        assert "delta" in m and "oldScore" in m and "newScore" in m
+        assert m["newScore"] == m["oldScore"] + m["delta"]
+        # Title shape
+        title = (n.get("title") or "").lower()
+        assert "score" in title and ("increased" in title or "decreased" in title)
+
+
 # ---------- Employer ----------
 
 class TestEmployer:

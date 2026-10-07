@@ -39,7 +39,7 @@ async function applyScoreEvent({ employeeId, delta, reason, source, refType, ref
       type: 'score', meta, link: '/employee/score',
       title: `Your EIBIL score ${ev.delta > 0 ? 'increased' : 'decreased'} by ${Math.abs(ev.delta)} points`,
       body: `${reason}. ${oldScore} → ${newScore}.`,
-      email: Math.abs(ev.delta) >= (cfg.events.notifyThreshold || 1),
+      email: Math.abs(ev.delta) >= (cfg.events.notifyThreshold ?? 3),
       emailContent: (u) => scoreChangeEmail({ name: u.name, ...meta, link: `${env.clientUrl}/employee/score` }),
     });
   }
