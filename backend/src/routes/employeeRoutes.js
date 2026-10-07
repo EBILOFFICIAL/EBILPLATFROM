@@ -1,0 +1,38 @@
+const router = require('express').Router();
+const c = require('../controllers/employeeController');
+const jobs = require('../controllers/jobController');
+const v = require('../validators/employeeValidator');
+const { validate } = require('../middleware/validateMiddleware');
+const { authenticate, requireVerifiedEmail } = require('../middleware/authMiddleware');
+const { requireRole, loadProfile } = require('../middleware/roleMiddleware');
+
+router.use(authenticate, requireRole('employee'), requireVerifiedEmail, loadProfile);
+router.get('/profile', c.getProfile);
+router.put('/profile', validate(v.profile), c.updateProfile);
+router.get('/score', c.score);
+router.get('/score/history', c.scoreHistory);
+router.get('/score/events', c.scoreHistory);
+router.get('/employments', c.employments);
+router.post('/employments', validate(v.employment), c.addEmployment);
+router.put('/employments/:id', validate(v.employment), c.updateEmployment);
+router.delete('/employments/:id', c.removeEmployment);
+router.post('/employments/:id/confirm', validate(v.confirmEmployment), c.confirmEmployment);
+router.get('/evaluations', c.evaluations);
+router.get('/disputes', c.disputes);
+router.post('/disputes', validate(v.dispute), c.raiseDispute);
+router.get('/privacy', c.getPrivacy);
+router.put('/privacy', validate(v.privacy), c.updatePrivacy);
+router.get('/consents', c.consents);
+router.post('/consents/:id/respond', validate(v.consentRespond), c.respondConsent);
+router.post('/consents/:id/revoke', c.revokeConsent);
+router.get('/report.pdf', c.reportPdf);
+router.get('/data-export', c.exportData);
+router.post('/deletion-request', c.requestDeletion);
+router.get('/notifications', c.notifications);
+router.post('/notifications/read', c.readNotifications);
+router.get('/employers', c.employersDirectory);
+router.get('/applications', jobs.myApplications);
+router.get('/saved-jobs', jobs.saved);
+router.post('/saved-jobs/:id', jobs.toggleSave);
+
+module.exports = router;

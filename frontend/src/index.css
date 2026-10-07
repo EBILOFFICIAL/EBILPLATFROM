@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+html, body { background: #F8FAFC; color: #1E293B; font-family: Inter, sans-serif; -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4, .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
+::selection { background: #FEE2E2; color: #991B1B; }
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-[background-color,box-shadow,transform,color] duration-150 active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none; }
+  .btn-primary { @apply btn bg-brand text-white shadow-sm hover:bg-brand-dark focus:ring-4 focus:ring-red-100; }
+  .btn-secondary { @apply btn bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 shadow-sm; }
+  .btn-dark { @apply btn bg-ink text-white hover:bg-ink-soft; }
+  .btn-ghost { @apply btn text-slate-600 hover:bg-slate-100; }
+  .btn-sm { @apply px-3 py-1.5 text-xs; }
+  .card { @apply bg-white border border-slate-200/80 rounded-2xl shadow-card; }
+  .input { @apply w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand focus:outline-none focus:ring-4 focus:ring-red-50 transition-[border-color,box-shadow]; }
+  .label { @apply mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500; }
+  .eyebrow { @apply text-xs font-bold uppercase tracking-[0.18em] text-brand; }
+  .table-base { @apply w-full text-left text-sm text-slate-700; }
+  .table-base th { @apply bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap; }
+  .table-base td { @apply border-t border-slate-100 px-4 py-3.5 align-top; }
+  .table-base tbody tr { @apply transition-colors hover:bg-slate-50/70; }
+}
+
+.grid-bg { background-image: linear-gradient(#E2E8F0 1px, transparent 1px), linear-gradient(90deg, #E2E8F0 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(ellipse at top, black 20%, transparent 70%); }
+.fade-up { animation: fadeUp .6s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }

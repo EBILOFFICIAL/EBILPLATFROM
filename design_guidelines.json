@@ -1,0 +1,102 @@
+{
+  "theme": "Light Mode Only (Strict Premium Institutional Fintech)",
+  "brand_identity": {
+    "name": "EIBIL",
+    "legal_title": "Employment Integrity & Background Intelligence League",
+    "tagline": "Employee Information Base of India",
+    "positioning": "India's employment score bureau, like CIBIL but for careers",
+    "logo": {
+      "wordmark": "EIBIL",
+      "wordmark_color": "#D7141A",
+      "tagline_color": "#1E293B",
+      "shield_badge": "Red emblem with gold integrity node and dual laurel micro-glyph"
+    }
+  },
+  "palette": {
+    "primary": "#D7141A",
+    "primary_hover": "#B91015",
+    "primary_light": "#FEF2F2",
+    "primary_ring": "rgba(215, 20, 26, 0.25)",
+    "slate_base": "#0F172A",
+    "slate_text": "#1E293B",
+    "slate_muted": "#64748B",
+    "bg_main": "#F8FAFC",
+    "bg_card": "#FFFFFF",
+    "bg_subtle": "#F1F5F9",
+    "border_subtle": "#E2E8F0",
+    "border_strong": "#CBD5E1",
+    "score_bands": {
+      "exceptional": { "range": "800-950", "color": "#15803D", "bg": "#DCFCE7", "label": "Exceptional" },
+      "good": { "range": "720-799", "color": "#0D9488", "bg": "#CCFBF1", "label": "Prime / High Trust" },
+      "fair": { "range": "640-719", "color": "#D97706", "bg": "#FEF3C7", "label": "Moderate / Standard" },
+      "caution": { "range": "550-639", "color": "#EA580C", "bg": "#FFEDD5", "label": "Review Advised" },
+      "high_risk": { "range": "300-549", "color": "#DC2626", "bg": "#FEE2E2", "label": "Integrity Concern" }
+    }
+  },
+  "typography": {
+    "heading_font": "Plus Jakarta Sans, sans-serif",
+    "body_font": "Inter, -apple-system, sans-serif",
+    "mono_font": "JetBrains Mono, monospace",
+    "google_fonts_url": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-900 leading-tight",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-slate-900",
+      "h3": "text-xl sm:text-2xl font-semibold text-slate-800",
+      "h4": "text-lg sm:text-xl font-semibold text-slate-800",
+      "body": "text-base text-slate-600 leading-relaxed",
+      "overline": "text-xs font-bold tracking-wider uppercase text-red-600"
+    }
+  },
+  "score_gauge_specs": {
+    "type": "SVG Semi-Circular Radial Dial (180 degree arc)",
+    "range": [300, 950],
+    "sample_score": 782,
+    "needle_color": "#0F172A",
+    "center_display": "Score value in text-5xl font-extrabold with status badge below",
+    "arc_segments": [
+      { "from": 300, "to": 550, "stroke": "#EF4444" },
+      { "from": 550, "to": 650, "stroke": "#F97316" },
+      { "from": 650, "to": 730, "stroke": "#FBBF24" },
+      { "from": 730, "to": 820, "stroke": "#14B8A6" },
+      { "from": 820, "to": 950, "stroke": "#22C55E" }
+    ]
+  },
+  "component_styles": {
+    "button_primary": "inline-flex items-center justify-center font-medium rounded-lg px-5 py-2.5 bg-[#D7141A] text-white hover:bg-[#B91015] transition-colors shadow-sm focus:ring-2 focus:ring-red-200 active:scale-[0.99]",
+    "button_secondary": "inline-flex items-center justify-center font-medium rounded-lg px-5 py-2.5 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm",
+    "card_base": "bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow",
+    "table_style": "w-full text-left border-collapse text-sm text-slate-700 font-sans divide-y divide-slate-200 [&_th]:bg-slate-50 [&_th]:px-4 [&_th]:py-3 [&_th]:font-semibold [&_th]:text-slate-600 [&_td]:px-4 [&_td]:py-3.5 [&_tr:hover]:bg-slate-50/80",
+    "badge_style": "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold",
+    "sidebar_style": "w-64 bg-white border-r border-slate-200 flex flex-col min-h-screen p-4 space-y-1 [&_a]:flex [&_a]:items-center [&_a]:gap-3 [&_a]:px-3.5 [&_a]:py-2.5 [&_a]:rounded-lg [&_a]:text-sm [&_a]:font-medium [&_a]:text-slate-600 [&_a:hover]:bg-slate-100 [&_a.active]:bg-red-50 [&_a.active]:text-red-700 [&_a.active]:font-semibold"
+  },
+  "home_page_sections": [
+    "Institutional Top Bar (Govt & ISO trust badges + CIN/ISO notices)",
+    "Main Navigation (Brand logo + Career Hub, Employer Network, Bureau Rules, Pricing, Jobs + Portal Selector Dropdown + 'Check Score' CTA)",
+    "Hero Section (Headline: 'India's Employment Trust & Verification Network', subheadline, dual CTA, Live Interactive Sample Score Card preview)",
+    "Trusted By Enterprise & PSU Strip (Clean monochromatic logos with verification metric ticker)",
+    "3-Step Trust Protocol (1. Candidate Consent & PAN Link → 2. Bureau-Grade Employer Verification → 3. Real-Time Dynamic Career Score)",
+    "Intelligence Engine Bento Grid (Tenure Stability, Dispute Transparency, Dual Offer Fraud Shield, Quarterly Milestone Ratings)",
+    "For Employees & For Employers Interactive Toggle Split",
+    "Live Testimonial & Industry Case Studies Carousel",
+    "Compliance & Regulatory Safeguards (DPDP Act 2023, ISO 27001, 256-bit AES Vault)",
+    "FAQ Accordion with Search Filter",
+    "Conversion Institutional CTA Banner & Comprehensive 5-column Footer"
+  ],
+  "portal_routes": {
+    "employee": "/employee (Career score, timeline, disputes, offers, consent)",
+    "employer": "/employer (Instant PAN verification, quarterly roster, reference requests, talent)",
+    "admin": "/admin (Fraud intelligence center, score engine weights, verifications queue, audits)"
+  },
+  "image_assets": {
+    "profile_sample_male": "https://images.unsplash.com/photo-1778692258270-bc0e80e975c0?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBwcm9mZXNzaW9uYWwlMjBwb3J0cmFpdCUyMGJ1c2luZXNzfGVufDB8fHx8MTc5MTM1OTYxNHww&ixlib=rb-4.1.0&q=85",
+    "profile_sample_female": "https://images.unsplash.com/photo-1607746882042-944635dfe10e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBidXNpbmVzc3dvbWFuJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzkxMzU5NjE3fDA&ixlib=rb-4.1.0&q=85",
+    "executive_sample": "https://images.unsplash.com/photo-1762341124796-530c0085f7d8?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA3MDB8MHwxfHNlYXJjaHwyfHxpbmRpYW4lMjBidXNpbmVzc3dvbWFuJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzkxMzU5NjE3fDA&ixlib=rb-4.1.0&q=85"
+  },
+  "guidelines_for_main_agent": [
+    "LIGHT MODE ONLY: Ensure no dark background mode or accidental theme toggle overrides.",
+    "Brand Color #D7141A is reserved for action CTA buttons, key metrics, and brand logo mark; use Slate #0F172A / #1E293B for deep institutional authority.",
+    "Never create transparent backgrounds on headers, dropdown menus, modals, or select elements.",
+    "Add 'data-testid' to every interactive button, tab, link, search input, verification trigger, and table row.",
+    "Implement the live interactive sample scorecard directly in the hero right-side column with switchable profiles."
+  ]
+}
