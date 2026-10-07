@@ -1087,3 +1087,106 @@ class TestResumeRetentionAcrossApply:
         assert d.status_code == 200, f"old application resume lost after re-upload: {d.status_code} {d.text[:120]}"
         assert len(d.content) > 10
 
+
+
+# ---------- NEW: Applicants CSV export + inline resume preview ----------
+
+class TestApplicantsCsvExport:
+    """GET /api/v1/employer/jobs/:id/applicants/export → text/csv with headers + rows."""
+
+    def _pick_job_with_applicants(self, employer_s):
+        jobs = employer_s.get(f"{API}/employer/jobs", timeout=10).json().get("data", [])
+        for j in jobs:
+            apps = employer_s.get(f"{API}/employer/jobs/{j['_id']}/applicants", timeout=10).json().get("data", {})
+            rows = apps.get("applicants") or []
+            if rows:
+                return j, rows
+        return None, []
+
+    def test_export_csv_as_acme(self, acme_session):
+        job, rows = self._pick_job_with_applicants(acme_session)
+        if not job:
+            pytest.skip("no acme job with applicants")
+        r = acme_session.get(f"{API}/employer/jobs/{job['_id']}/applicants/export", timeout=20)
+        assert r.status_code == 200, f"export failed: {r.status_code} {r.text[:200]}"
+        ctype = r.headers.get("Content-Type", "")
+        assert "text/csv" in ctype, f"wrong content-type: {ctype}"
+        cdisp = r.headers.get("Content-Disposition", "")
+        assert "attachment" in cdisp and ".csv" in cdisp, f"bad disposition: {cdisp}"
+        text = r.text
+        # Strip optional BOM
+        if text.startswith("\ufeff"):
+            text = text[1:]
+        lines = text.splitlines()
+        assert len(lines) >= 1 + len(rows), f"expected header + {len(rows)} rows, got {len(lines)}"
+        header = lines[0]
+        for col in ["Name", "EIBIL ID", "Email", "Phone", "City", "Score at apply", "Band", "Status", "Applied on", "Resume"]:
+            assert col in header, f"missing column '{col}' in header: {header}"
+        # At least one applicant row should contain their email
+        emp = rows[0].get("employeeId") or {}
+        if emp.get("email"):
+            assert any(emp["email"] in ln for ln in lines[1:]), "applicant email missing from CSV body"
+
+    def test_export_csv_cross_employer_forbidden(self, nimbus_session, acme_session):
+        jobs = acme_session.get(f"{API}/employer/jobs", timeout=10).json().get("data", [])
+        if not jobs:
+            pytest.skip("no acme job")
+        acme_job_id = jobs[0]["_id"]
+        r = nimbus_session.get(f"{API}/employer/jobs/{acme_job_id}/applicants/export", timeout=15)
+        assert r.status_code in (403, 404), f"cross-employer export should 403/404: {r.status_code}"
+
+    def test_export_creates_audit_log(self, acme_session):
+        job, rows = self._pick_job_with_applicants(acme_session)
+        if not job:
+            pytest.skip("no acme job with applicants")
+        r = acme_session.get(f"{API}/employer/jobs/{job['_id']}/applicants/export", timeout=20)
+        assert r.status_code == 200
+        # Audit trail is scoped to team members; look for applicants.exported entry on this job
+        audit = acme_session.get(f"{API}/employer/audit-trail", timeout=10)
+        if audit.status_code != 200:
+            pytest.skip(f"audit-trail unavailable: {audit.status_code}")
+        entries = audit.json().get("data", [])
+        exported = [e for e in entries if e.get("action") == "applicants.exported"]
+        assert exported, f"applicants.exported audit entry not found. actions seen: {sorted({e.get('action') for e in entries})}"
+
+
+class TestResumeInlinePreview:
+    """GET /api/v1/employer/resumes/:id/download?inline=1 → inline Content-Disposition for PDFs."""
+
+    def _get_a_pdf_resume_id(self, acme_s):
+        jobs = acme_s.get(f"{API}/employer/jobs", timeout=10).json().get("data", [])
+        for j in jobs:
+            apps = acme_s.get(f"{API}/employer/jobs/{j['_id']}/applicants", timeout=10).json().get("data", {})
+            for a in (apps.get("applicants") or []):
+                rid = (a.get("resumeId") or {}).get("_id")
+                fn = (a.get("resumeId") or {}).get("fileName") or ""
+                if rid and fn.lower().endswith(".pdf"):
+                    return rid
+        return None
+
+    def test_inline_pdf_returns_inline_disposition(self, acme_session):
+        rid = self._get_a_pdf_resume_id(acme_session)
+        if not rid:
+            pytest.skip("no PDF resume accessible to acme")
+        r = acme_session.get(f"{API}/employer/resumes/{rid}/download?inline=1", timeout=15)
+        assert r.status_code == 200
+        cdisp = r.headers.get("Content-Disposition", "")
+        assert cdisp.startswith("inline"), f"expected inline, got: {cdisp}"
+        ctype = r.headers.get("Content-Type", "")
+        assert "pdf" in ctype.lower(), f"expected pdf content-type, got {ctype}"
+
+    def test_without_inline_param_stays_attachment(self, acme_session):
+        rid = self._get_a_pdf_resume_id(acme_session)
+        if not rid:
+            pytest.skip("no PDF resume accessible to acme")
+        r = acme_session.get(f"{API}/employer/resumes/{rid}/download", timeout=15)
+        assert r.status_code == 200
+        cdisp = r.headers.get("Content-Disposition", "")
+        assert cdisp.startswith("attachment"), f"expected attachment, got: {cdisp}"
+
+    def test_inline_cross_employer_still_forbidden(self, nimbus_session, acme_session):
+        rid = self._get_a_pdf_resume_id(acme_session)
+        if not rid:
+            pytest.skip("no PDF resume accessible to acme")
+        r = nimbus_session.get(f"{API}/employer/resumes/{rid}/download?inline=1", timeout=15)
+        assert r.status_code == 403, f"cross-employer inline preview should 403: {r.status_code}"

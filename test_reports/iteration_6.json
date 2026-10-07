@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration-6 targeted test of two new employer features: (1) Applicant CSV export via GET /api/v1/employer/jobs/:id/applicants/export and (2) Resume inline preview via GET /api/v1/employer/resumes/:id/download?inline=1. Added 6 new backend pytest cases (TestApplicantsCsvExport x3, TestResumeInlinePreview x3) — all 6 PASS. Frontend: logged in as hr@acmetech.in, opened QA Automation Engineer pipeline, exercised export-applicants (200 text/csv, attachment, correct filename 'QA-Automation-Engineer-applicants.csv'), applicant-resume-preview-<id> (200 application/pdf, Content-Disposition: inline), applicant-resume-<id> (200 pdf, attachment). Verified historical candidate report path via /employer/verify → Open report → report-preview-resume (200 inline pdf) and report-download-resume (200 attachment pdf). Everything works end-to-end. The 5 other backend failures in the full suite are pre-existing and unrelated: 4 are due to Acme's 0-credit balance (already flagged in iteration_5 context) and 1 is a score-drift assertion in TestAdminDataExplorer (expected 940 got 945, pre-existing drift).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/iter6_new.xml"],
+  "action_items": [
+    "Optional: reseed Acme credits (/api/v1/billing/credits/purchase or node src/seeds/seed.js --reset) so TestEmployerLookup / TestReportContact pass in the full suite. Not required for the two new features."
+  ],
+  "critical_code_review_comments": [
+    "employerController.exportApplicants: filename sanitiser strips most non-word chars; good. Minor: no explicit cap on applicants count — a job with 100k applicants would stream a huge CSV in-memory. Acceptable for current scale but consider pagination/streaming (res.write chunks) if usage grows.",
+    "exportApplicants uses jobService.applicants(req.employer, req.params.id) which already enforces employer-scope — cross-employer returns 403/404 (verified). Audit log 'applicants.exported' is recorded with count meta — verified via /employer/audit-trail.",
+    "downloadResume inline branch gates inline strictly on resume.mimeType === 'application/pdf' (correct — DOC/DOCX stay as attachment). Good defensive behaviour.",
+    "previewResume client (employerService.js) uses URL.createObjectURL + window.open; some popup blockers may block if the click handler goes through an async await before window.open. Currently it awaits fetch then calls window.open — browsers may treat this as programmatic and block the popup. Works in Playwright/Chromium (verified) but worth a UX note.",
+    "exportApplicants CSV is prefixed with UTF-8 BOM (﻿) — good for Excel. Row separator is '\\n' only; Excel on Windows is fine with that, but consider '\\r\\n' for maximum compatibility."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (added TestApplicantsCsvExport (3 tests) and TestResumeInlinePreview (3 tests))"
+  ],
+  "success_rate": {"backend": "100% on new feature tests (6/6). Full suite: 77/82 non-skipped pass; 5 failures all pre-existing (credit balance + score drift).", "frontend": "100% — export, preview, download, report-preview, report-download all verified via network response capture."},
+  "test_credentials": "hr@acmetech.in / Demo@12345 and hr@nimbusfin.in / Demo@12345 from /app/memory/test_credentials.md. Acme currently at 0 credits (unchanged from iteration_5).",
+  "seed_data_creation": "No new seed data. Reused existing Rahul applied-with-resume (retention_A.pdf) and Priya's seeded resume from prior iterations.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend suite now has 92 tests. The two new feature tests live in TestApplicantsCsvExport and TestResumeInlinePreview at the bottom of /app/backend/tests/backend_test.py. Verification: pytest tests/backend_test.py::TestApplicantsCsvExport tests/backend_test.py::TestResumeInlinePreview -v → 6 passed. If Acme runs out of credits for the lookup/report tests, top up via /api/v1/billing/credits/purchase (mock mode) or reseed.",
+  "rca of the issue": "No new issues found. Both features (CSV export with audit log + inline PDF preview with proper Content-Disposition fallback for non-PDF) are correctly implemented end-to-end across controller, routes, service, and frontend."
+}

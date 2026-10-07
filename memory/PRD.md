@@ -22,9 +22,10 @@ Build EIBIL (Employment Integrity & Background Intelligence League) per the 482-
 
 - 2026-06: Candidate contact details (email, phone, city) shown in employer score reports and in the employer job pipeline. Resumes: optional PDF/DOC/DOCX up to 5 MB on job apply, stored in MongoDB (Resume collection), saved to the candidate profile and reused; manage (replace/download/delete) from employee Settings 'My resume' panel. Employers download resumes for their applicants or candidates whose report they viewed (403 otherwise). Replaced resumes are kept while old applications reference them. Tests: iteration_5 (78/78)
 
+- 2026-06: Employer applicant CSV export (contact details, score, status, resume name; audit-logged) and in-browser resume preview (inline PDF, falls back to download for DOC/DOCX) in the pipeline and the candidate report. Tests: iteration_6 (6/6 new)
+
 ## Backlog
 - P1: replace dummy Razorpay keys with real test keys and verify the checkout and webhook flows
 - P1: configure real PAN, email, SMS and storage providers; turn off EXPOSE_DEV_OTP for production
 - P2: limit or revoke old self-report codes per employee
-- P2: move resumes from MongoDB to object storage if traffic grows
 - P2: deeper E2E checks of scheduled jobs in in-process fallback mode
