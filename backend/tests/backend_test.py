@@ -1036,3 +1036,54 @@ class TestReportContact:
         d2 = r2.json().get("data", {})
         if ident.get("resumeAvailable"):
             assert d2.get("resumeId"), f"getForEmployer response missing resumeId: keys={list(d2.keys())}"
+
+
+# ---------- NEW: Resume retention when candidate uploads a replacement ----------
+
+class TestResumeRetentionAcrossApply:
+    """When a candidate applies to a job with resume A then uploads resume B via /employee/resume,
+    the Application row must still carry a working resumeId (A kept because referenced)."""
+
+    def _open_job(self, employer_s):
+        jobs = employer_s.get(f"{API}/employer/jobs", timeout=10).json().get("data", [])
+        active = [j for j in jobs if (j.get("status") or "open") in ("open", "active", "published")]
+        return (active or jobs)[0]
+
+    def test_apply_with_resume_A_then_upload_B_keeps_A_downloadable(self, acme_session, rahul_session):
+        # Make sure rahul has no profile resume to start
+        rahul_session.delete(f"{API}/employee/resume", timeout=10)
+
+        # Find any Acme job rahul hasn't applied to yet
+        jobs = acme_session.get(f"{API}/employer/jobs", timeout=10).json().get("data", [])
+        chosen = None
+        files_a = {"resume": ("retention_A.pdf", MINI_PDF + b"\n% A\n", "application/pdf")}
+        for job in jobs:
+            r = rahul_session.post(f"{API}/jobs/{job['_id']}/apply", data={"answers": "[]"},
+                                   files={"resume": ("retention_A.pdf", MINI_PDF + b"\n% A\n", "application/pdf")}, timeout=20)
+            if r.status_code in (200, 201):
+                chosen = job
+                break
+        if not chosen:
+            pytest.skip("rahul has already applied to every Acme job; cannot test retention")
+
+        # Capture resume A id from the applicants row for this job
+        apps = acme_session.get(f"{API}/employer/jobs/{chosen['_id']}/applicants", timeout=10).json().get("data", {})
+        rows = apps.get("applicants") or []
+        rahul_row = next((a for a in rows if "rahul" in ((a.get("employeeId") or {}).get("fullName") or "").lower()), None)
+        assert rahul_row, "rahul row missing after apply"
+        old_rid = (rahul_row.get("resumeId") or {}).get("_id")
+        assert old_rid, f"no resumeId on applicant row: {rahul_row.get('resumeId')}"
+
+        # Now upload resume B via account page endpoint
+        files_b = {"resume": ("retention_B.pdf", MINI_PDF + b"\n% B\n", "application/pdf")}
+        r2 = rahul_session.post(f"{API}/employee/resume", files=files_b, timeout=20)
+        assert r2.status_code in (200, 201)
+        prof_meta = rahul_session.get(f"{API}/employee/resume", timeout=10).json().get("data")
+        new_rid = prof_meta.get("_id") or prof_meta.get("id")
+        assert new_rid and new_rid != old_rid, "profile should now point to new resume"
+
+        # The OLD resume (referenced by application) must still be downloadable by Acme
+        d = acme_session.get(f"{API}/employer/resumes/{old_rid}/download", timeout=15)
+        assert d.status_code == 200, f"old application resume lost after re-upload: {d.status_code} {d.text[:120]}"
+        assert len(d.content) > 10
+

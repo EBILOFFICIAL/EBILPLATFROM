@@ -25,6 +25,7 @@ export function EmployerJobs() {
   const { data, loading, reload } = useFetch(() => employerService.jobs(), []);
   const [open, setOpen] = useState(false);
   const [jobId, setJobId] = useState(null);
+  const [report, setReport] = useState(null);
   const { data: pipe, reload: reloadPipe } = useFetch(() => (jobId ? employerService.applicants(jobId) : Promise.resolve(null)), [jobId]);
   const create = (f) => run(employerService.createJob({ ...Object.fromEntries(Object.entries(f).filter(([, v]) => v !== '' && v != null)), skills: f.skills ? f.skills.split(',').map((s) => s.trim()) : [], screeningQuestions: f.screeningQuestions ? [f.screeningQuestions] : [] })).then(reload);
   return (<div><PageHeader title="Jobs & applicant pipeline" actions={<Button onClick={() => setOpen(true)} data-testid="post-job">Post job</Button>} />

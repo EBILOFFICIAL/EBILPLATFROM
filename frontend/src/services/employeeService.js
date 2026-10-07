@@ -47,7 +47,7 @@ export const employeeService = {
     const a = Object.assign(document.createElement('a'), { href: url, download: name });
     a.click(); URL.revokeObjectURL(url);
   },
-  deleteResume: () => del('/resume'),
+  deleteResume: () => unwrapFull(api.delete('/employee/resume')),
   offers: () => g('/offers'),
   declareOffer: (b) => post('/offers', b),
   offerOtp: (id) => post(`/offers/${id}/accept-otp`),

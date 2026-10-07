@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, Star, Briefcase, CreditCard, ShieldCheck, ClipboardCheck } from 'lucide-react';
+import { Users, Star, Briefcase, CreditCard, ShieldCheck, ClipboardCheck, Download } from 'lucide-react';
 import { PageHeader, Panel, StatCard } from '../../components/common/Layout';
 import Table from '../../components/common/Table';
 import StatusBadge from '../../components/common/StatusBadge';
