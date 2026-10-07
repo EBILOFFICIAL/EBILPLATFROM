@@ -1190,3 +1190,192 @@ class TestResumeInlinePreview:
             pytest.skip("no PDF resume accessible to acme")
         r = nimbus_session.get(f"{API}/employer/resumes/{rid}/download?inline=1", timeout=15)
         assert r.status_code == 403, f"cross-employer inline preview should 403: {r.status_code}"
+
+
+# ---------- Admin Insights (employees, employee overview, employer overview, applications) ----------
+
+class TestAdminInsights:
+    """Admin insight endpoints: /admin/employees, overviews, applications CRUD."""
+
+    def test_employees_list_shape(self, admin_session):
+        r = admin_session.get(f"{API}/admin/employees?limit=5")
+        assert r.status_code == 200
+        d = r.json()
+        assert d["success"]
+        assert "data" in d and isinstance(d["data"], list)
+        assert "meta" in d and "total" in d["meta"] and "pages" in d["meta"]
+        # pick a scored employee for shape (unscored rows legitimately omit band)
+        scored = [x for x in d["data"] if x.get("currentScore") is not None]
+        if not scored:
+            # Fetch again by scoreMin=1 to guarantee a scored row
+            r2 = admin_session.get(f"{API}/admin/employees?scoreMin=1&limit=1")
+            scored = r2.json()["data"]
+        if scored:
+            row = scored[0]
+            for k in ("_id", "eibilId", "fullName", "currentScore", "band",
+                      "panVerified", "currentEmployer", "applications",
+                      "email", "phone"):
+                assert k in row, f"missing field {k} in employee row"
+
+    def test_employees_search_q(self, admin_session):
+        r = admin_session.get(f"{API}/admin/employees?q=priya")
+        assert r.status_code == 200
+        rows = r.json()["data"]
+        assert any(x["fullName"] and "priya" in x["fullName"].lower() for x in rows), "priya not found via q"
+
+    def test_employees_filter_band_pan_openToWork(self, admin_session):
+        r = admin_session.get(f"{API}/admin/employees?band=Good&panVerified=true&openToWork=true")
+        assert r.status_code == 200
+        for row in r.json()["data"]:
+            assert row["band"] == "Good"
+            assert row["panVerified"] is True
+            assert row["openToWork"] is True
+
+    def test_employees_filter_score_range(self, admin_session):
+        r = admin_session.get(f"{API}/admin/employees?scoreMin=700&scoreMax=800")
+        assert r.status_code == 200
+        for row in r.json()["data"]:
+            s = row.get("currentScore")
+            if s is not None:
+                assert 700 <= s <= 800
+
+    def test_employees_sort_score_desc(self, admin_session):
+        r = admin_session.get(f"{API}/admin/employees?sort=score_desc&limit=20")
+        assert r.status_code == 200
+        scores = [x["currentScore"] for x in r.json()["data"] if x["currentScore"] is not None]
+        assert scores == sorted(scores, reverse=True), f"not score_desc: {scores}"
+
+    def test_employees_export_limit_up_to_5000(self, admin_session):
+        r = admin_session.get(f"{API}/admin/employees?export=1&limit=5000")
+        assert r.status_code == 200
+        assert r.json()["meta"]["limit"] == 5000
+
+    def test_employees_date_filter_future_returns_zero(self, admin_session):
+        r = admin_session.get(f"{API}/admin/employees?from=2030-01-01")
+        assert r.status_code == 200
+        assert r.json()["meta"]["total"] == 0
+        assert r.json()["data"] == []
+
+    def test_employee_overview_full(self, admin_session):
+        # locate Priya
+        r = admin_session.get(f"{API}/admin/employees?q=priya")
+        assert r.status_code == 200 and r.json()["data"], "need Priya seeded"
+        eid = r.json()["data"][0]["_id"]
+        r2 = admin_session.get(f"{API}/admin/employees/{eid}/overview")
+        assert r2.status_code == 200
+        d = r2.json()["data"]
+        for k in ("profile", "user", "trend", "scoreEvents", "employment",
+                  "evaluations", "applications", "viewers", "disputes",
+                  "offers", "separations", "flags"):
+            assert k in d, f"missing {k}"
+        # applications should be populated with job + company
+        if d["applications"]:
+            a = d["applications"][0]
+            assert "jobId" in a and "employerId" in a
+        assert isinstance(d["trend"], list)
+
+    def test_employee_overview_invalid_id(self, admin_session):
+        r = admin_session.get(f"{API}/admin/employees/not-an-oid/overview")
+        assert r.status_code == 400
+
+    def test_employee_overview_not_found(self, admin_session):
+        r = admin_session.get(f"{API}/admin/employees/6ac6214049d1cde490741111/overview")
+        assert r.status_code == 404
+
+    def test_employer_overview_full(self, admin_session):
+        r = admin_session.get(f"{API}/admin/employers?limit=10")
+        assert r.status_code == 200
+        # Find Acme
+        acme = next((x for x in r.json()["data"] if "Acme" in (x.get("companyName") or "")), None)
+        assert acme, "Acme not found"
+        r2 = admin_session.get(f"{API}/admin/employers/{acme['_id']}/overview")
+        assert r2.status_code == 200
+        d = r2.json()["data"]
+        for k in ("employer", "members", "jobs", "applications", "roster",
+                  "evaluations", "reports", "payments", "credits"):
+            assert k in d, f"missing {k}"
+        # jobs include applicantCount
+        if d["jobs"]:
+            assert "applicantCount" in d["jobs"][0]
+            assert isinstance(d["jobs"][0]["applicantCount"], int)
+
+    def test_applications_list_filters(self, admin_session):
+        r = admin_session.get(f"{API}/admin/applications?limit=5")
+        assert r.status_code == 200
+        rows = r.json()["data"]
+        assert isinstance(rows, list)
+        if rows:
+            assert "status" in rows[0]
+            assert "employeeId" in rows[0] and "jobId" in rows[0]
+        # from in future -> 0
+        r2 = admin_session.get(f"{API}/admin/applications?from=2030-01-01")
+        assert r2.status_code == 200
+        assert r2.json()["meta"]["total"] == 0
+
+    def test_applications_status_change_and_audit(self, admin_session):
+        # Pick an applied app for Priya
+        r = admin_session.get(f"{API}/admin/applications?limit=20")
+        assert r.status_code == 200
+        apps = r.json()["data"]
+        target = next((a for a in apps if a["status"] in ("applied", "shortlisted")), None)
+        assert target, "need an application to transition"
+        orig = target["status"]
+        new = "shortlisted" if orig != "shortlisted" else "interview"
+        r2 = admin_session.put(
+            f"{API}/admin/applications/{target['_id']}/status",
+            json={"status": new, "note": "pytest admin status change"},
+        )
+        assert r2.status_code == 200, r2.text
+        assert r2.json()["data"]["status"] == new
+        # history has entry
+        hist = r2.json()["data"]["history"]
+        assert hist[-1]["status"] == new
+        # audit log should contain application.status_changed
+        r3 = admin_session.get(f"{API}/admin/audit-logs?action=application.status_changed&limit=5")
+        assert r3.status_code == 200
+        logs = r3.json().get("data", [])
+        assert any(str(l.get("entityId")) == target["_id"] for l in logs), "audit log missing"
+        # revert
+        admin_session.put(
+            f"{API}/admin/applications/{target['_id']}/status",
+            json={"status": orig},
+        )
+
+    def test_applications_status_invalid(self, admin_session):
+        r = admin_session.get(f"{API}/admin/applications?limit=1")
+        assert r.status_code == 200 and r.json()["data"]
+        aid = r.json()["data"][0]["_id"]
+        r2 = admin_session.put(
+            f"{API}/admin/applications/{aid}/status",
+            json={"status": "not_a_real_status"},
+        )
+        assert r2.status_code == 400
+
+
+# ---------- Generic date-range + export CSV on admin resource lists ----------
+
+class TestAdminResourceDateAndExport:
+    """Verify date filter + export=1 raised limit on admin lists."""
+
+    ENDPOINTS = [
+        "users", "employers", "verification-queue", "fraud", "disputes",
+        "offers", "jobs", "payments", "audit-logs", "tickets", "evaluations",
+    ]
+
+    def test_future_from_zero(self, admin_session):
+        failures = []
+        for ep in self.ENDPOINTS:
+            r = admin_session.get(f"{API}/admin/{ep}?from=2030-01-01")
+            if r.status_code != 200:
+                failures.append(f"{ep}: HTTP {r.status_code}")
+                continue
+            total = r.json().get("meta", {}).get("total")
+            if total not in (0, None):
+                failures.append(f"{ep}: expected 0, got {total}")
+        assert not failures, failures
+
+    def test_export_raises_limit(self, admin_session):
+        # If export=1 is honored, meta.limit should allow >100
+        r = admin_session.get(f"{API}/admin/users?export=1&limit=5000")
+        assert r.status_code == 200
+        assert r.json()["meta"]["limit"] == 5000

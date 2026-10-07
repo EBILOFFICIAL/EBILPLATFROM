@@ -49,7 +49,7 @@ function Footer() {
       <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 lg:grid-cols-6 lg:px-8">
         <div className="lg:col-span-2">
           <Logo className="h-9" />
-          <p className="mt-4 max-w-xs text-sm text-slate-500">India&apos;s employment score bureau. Verified, consent-first, tamper-evident career records.</p>
+          <p className="mt-4 max-w-xs text-sm text-slate-500">India&apos;s employment score bureau. Verified, transparent, tamper-evident career records.</p>
           <p className="mt-4 flex items-center gap-2 text-xs text-slate-400"><ShieldCheck className="h-4 w-4" />DPDP Act 2023 aligned · ISO 27001 in progress (not certified)</p>
         </div>
         {FOOT.map(([h, links]) => (

@@ -1,0 +1,33 @@
+{
+  "summary": "Iteration-7 tested the admin EIBIL insight suite (Employees list, Employee 360, Employer 360, admin Applications CRUD, generic from/to + CSV export). Added TestAdminInsights (14 tests) and TestAdminResourceDateAndExport (2 tests) to /app/backend/tests/backend_test.py — all 16 PASS (`pytest -n 0`). Frontend verified via Playwright as admin@eibil.in + devOtp: dashboard stat cards exist and navigate; funnel items navigate to /admin/applications?status=; /admin/employees exposes all requested testIds (filter-band/panVerified/openToWork/scoreMin/scoreMax, sort, from, to, export, search); CSV download fires (`employees-2026-10-07.csv`); row click opens Employee 360 at /admin/employees/:id with score gauge, trend, 4 stat cards, profile, and all 9 tabs (applications/score/employment/evaluations/viewers/offers/exits/disputes/flags); employee-360-export downloads `employee-360-applications-2026-10-07.csv`; app-status-<id> inline select changes application status (applied → shortlisted, backend audit log written); employee-adjust-score modal opens and Save works; employee-edit-record drawer opens showing EmployeeProfile fields. Employer 360 (via employer-360-<id> button) renders all 8 tabs (jobs/applicants/roster/evaluations/reports/payments/credits/team), applicantCount per job, and employer-360-export CSV works. On the other admin lists (users/employers/fraud/verification/jobs) the generic -from/-to/-export testIds all render. One real regression spotted: the login page LEFT HERO still contains the string 'Consent-first reports. You control who sees what.' — the review request explicitly stated this copy should no longer say 'consent-first'. Backend date range (from=2030-01-01) correctly returns total 0 on /admin/employees, /admin/applications and all tested paginated admin lists; export=1 raises meta.limit to 5000 as spec'd.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Login page (left hero copy)", "issue": "Still displays 'Consent-first reports. You control who sees what.' — spec requires this consent-first wording to be removed.", "selector": "Left hero on /login", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/iter7.xml"],
+  "action_items": [
+    "Remove the 'Consent-first reports. You control who sees what.' line from the Login/public auth hero (should match the new copy without the word 'consent-first').",
+    "Nice-to-have: ensure 'band' field is always present (null-safe) in /admin/employees rows for consistent client parsing (currently omitted when the employee has no score)."
+  ],
+  "critical_code_review_comments": [
+    "adminInsightService.listEmployees: returns `band: p.band` which collapses to undefined/absent key for unscored employees. Prefer always-serialised `band: p.band ?? null` so clients can rely on key presence for empty-state rendering/CSV columns.",
+    "People.jsx AdminVerification (line 91) uses `import.meta.env.REACT_APP_BACKEND_URL` for inline document links. In this Vite build the var is exposed as `REACT_APP_BACKEND_URL` via vite config (works today), but mixing Vite's `import.meta.env` with legacy CRA naming is fragile — standardise on one.",
+    "routes/admin/index.js registers both `router.get('/applications', ..., insight.applications)` (line 46) and `router.get('/applications', ..., oversight.applications)` (line 124). Express will serve the first registration; the second line is dead code and should be removed to avoid confusion.",
+    "adminInsightService.setApplicationStatus hard-codes `[Admin]` prefix and pushes to app.notes without checking schema length limits — fine for now, worth guarding against huge notes arrays over time.",
+    "withDateRange in utils/pagination.js parses `from=YYYY-MM-DD` with raw `new Date(from)` (UTC midnight) but `to` ends at 23:59:59.999Z — asymmetric. Consider also snapping `from` to start-of-day for consistency and to avoid off-by-one issues when the admin lives in IST (UTC+5:30)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py (appended TestAdminInsights with 14 tests and TestAdminResourceDateAndExport with 2 tests)"
+  ],
+  "success_rate": {"backend": "100% (16/16 new tests pass; full suite not re-run but previous pre-existing failures remain the 4 Acme-credit tests + 1 score-drift noted in iteration_6)", "frontend": "~95% — all requested testIds and flows verified; one copy regression on login page"},
+  "test_credentials": "admin@eibil.in / Admin@12345 (2FA devOtp shown on screen via EXPOSE_DEV_OTP). Used /app/scripts/admin_token.sh pattern.",
+  "seed_data_creation": "None. Tests re-use seeded Priya / Acme / existing applications. Test revert their own application-status changes after audit log assertion.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend suite now has 108 tests. Run new suites with `pytest backend/tests/backend_test.py::TestAdminInsights backend/tests/backend_test.py::TestAdminResourceDateAndExport -v -n 0` (serial — the admin 2FA login fixture is session-scoped and parallel workers will burn through the devOtp, causing 'Incorrect code' failures with the default -n 2 addopts). Only live frontend bug observed is the login page copy still saying 'Consent-first reports.'. Also note the duplicate route registration for /admin/applications in routes/admin/index.js (insight wins; oversight.applications is dead).",
+  "rca of the issue": "Login copy regression — the hero bullet in the left panel of /login still reads 'Consent-first reports. You control who sees what.'. The review request lists this exact copy change as part of the regression bar, meaning the copy was supposed to be rewritten/removed. The string lives in the public auth layout (left hero column). Fix = replace or delete that bullet in the auth layout component used by Login.jsx."
+}

@@ -24,6 +24,8 @@ Build EIBIL (Employment Integrity & Background Intelligence League) per the 482-
 
 - 2026-06: Employer applicant CSV export (contact details, score, status, resume name; audit-logged) and in-browser resume preview (inline PDF, falls back to download for DOC/DOCX) in the pipeline and the candidate report. Tests: iteration_6 (6/6 new)
 
+- 2026-06: Admin insights. Employees list (/admin/employees: score, band, PAN, current employer, applications; search/filters/sort/date/export). Employee full view (/admin/employees/:id: gauge, trend, 9 tabs incl. jobs applied and employer views; inline application status; instant score change; edit drawer). Employer full view (/admin/employers/:id: KYC, credits, jobs with applicant counts, applicants, roster, evaluations, reports viewed, payments, credit history, team). Admin Applications list. Clickable dashboard (stat cards, score bars, funnel). Every admin list has From/To date filters + CSV export (server-side withDateRange in paginate, export=1 up to 5000 rows; client-side fallback for unpaginated lists). Tests: iteration_7 (16/16 new)
+
 ## Backlog
 - P1: replace dummy Razorpay keys with real test keys and verify the checkout and webhook flows
 - P1: configure real PAN, email, SMS and storage providers; turn off EXPOSE_DEV_OTP for production

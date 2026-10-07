@@ -52,7 +52,7 @@ async function listEmployees(query) {
     const job = current.find((r) => String(r.employeeId) === String(p._id));
     return {
       _id: p._id, eibilId: p.eibilId, fullName: p.fullName, email: p.userId?.email, phone: p.userId?.mobile, city: p.location, accountStatus: p.userId?.status,
-      currentScore: p.currentScore, band: p.band, panVerified: p.panVerified, panStatus: p.panStatus, panMasked: p.panMasked,
+      currentScore: p.currentScore ?? null, band: p.band ?? null, panVerified: p.panVerified, panStatus: p.panStatus, panMasked: p.panMasked,
       currentEmployer: job?.employerId?.companyName || null, currentEmployerId: job?.employerId?._id || null, designation: job?.designation || null,
       applications: apps.find((a) => String(a._id) === String(p._id))?.n || 0, openToWork: p.openToWork, createdAt: p.createdAt,
     };
