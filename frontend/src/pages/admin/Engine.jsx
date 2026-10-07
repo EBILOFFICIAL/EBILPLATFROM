@@ -52,7 +52,7 @@ export function AdminScoreJobs() {
 }
 
 export function AdminDisputes() {
-  const [tab, setTab] = useState('disputes');
+  const [tab, setTab] = useState(() => new URLSearchParams(window.location.search).get('tab') || 'disputes');
   const [resolve, setResolve] = useState(null);
   return (<div><Tabs tabs={[{ value: 'disputes', label: 'Disputes' }, { value: 'evaluations', label: 'Evaluations' }]} value={tab} onChange={setTab} />
     {tab === 'disputes' ? <ResourcePage key="d" title="Disputes" path="/disputes" testId="admin-disputes" search={false} filters={[{ name: 'status', label: 'Status', options: ['open', 'under_review', 'resolved_employee', 'resolved_employer', 'modified', 'rejected'] }]} columns={(reload) => [{ title: 'Raised', render: (r) => fmtDate(r.createdAt) }, { title: 'Employee', render: (r) => r.employeeId?.fullName }, { title: 'Target', render: (r) => label(r.targetType) }, { title: 'Reason', key: 'reason' }, { title: 'SLA', render: (r) => <span className={new Date(r.slaDueAt) < new Date() ? 'text-brand' : ''}>{fmtDate(r.slaDueAt)}</span> }, { title: 'Status', render: (r) => <StatusBadge status={r.status} /> }, { title: '', render: (r) => ['open', 'under_review'].includes(r.status) && <Button size="sm" onClick={() => setResolve({ id: r._id, reload })} data-testid={`resolve-dispute-${r._id}`}>Resolve</Button> }]} />

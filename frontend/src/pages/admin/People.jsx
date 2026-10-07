@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Users, Building2, ScanFace, ShieldAlert, Gavel, IndianRupee, Briefcase, Gauge } from 'lucide-react';
+import { Users, Building2, ScanFace, ShieldAlert, Gavel, IndianRupee, Briefcase, Gauge, Contact, FileText } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import ResourcePage from '../../components/admin/ResourcePage';
 import { AdminActivityFeed } from './DataExplorer';
@@ -14,19 +15,24 @@ import { fmtDate, fmtDateTime, fmtInr, run } from '../../utils/formatters';
 
 const A = adminService;
 
+const BUCKETS = { 300: [300, 599], 600: [600, 749], 750: [750, 849], 850: [850, 899], 900: [900, 950] };
+
 export function AdminDashboard() {
+  const nav = useNavigate();
   const { data: d } = useFetch(() => A.get('/analytics'), []);
+  const openBucket = (b) => { const r = BUCKETS[b?.bucket]; if (r) nav(`/admin/employees?scoreMin=${r[0]}&scoreMax=${r[1]}&sort=score_desc`); };
   return (<div><PageHeader eyebrow="Admin Console" title="Platform overview" />
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard label="Users" value={d?.users} icon={Users} testId="admin-stat-users" /><StatCard label="Employers (pending)" value={d && `${d.employers} (${d.pendingEmployers})`} icon={Building2} />
-      <StatCard label="PAN verified / queue" value={d && `${d.panVerified} / ${d.panQueue}`} icon={ScanFace} /><StatCard label="Open fraud flags" value={d?.fraudOpen} icon={ShieldAlert} tone="text-brand" />
-      <StatCard label="Evaluations" value={d?.evaluations} icon={Gauge} /><StatCard label="Disputes (overdue)" value={d && `${d.openDisputes} (${d.overdueDisputes})`} icon={Gavel} />
-      <StatCard label="Revenue" value={fmtInr(d?.revenue)} icon={IndianRupee} tone="text-emerald-600" /><StatCard label="Active jobs" value={d?.activeJobs} icon={Briefcase} />
+      <StatCard to="/admin/users" label="Users" value={d?.users} icon={Users} testId="admin-stat-users" /><StatCard to="/admin/employees" label="Employees" value={d?.employees} icon={Contact} testId="admin-stat-employees" />
+      <StatCard to="/admin/employers?kycStatus=pending" label="Employers (pending)" value={d && `${d.employers} (${d.pendingEmployers})`} icon={Building2} testId="admin-stat-employers" /><StatCard to="/admin/verification" label="PAN verified / queue" value={d && `${d.panVerified} / ${d.panQueue}`} icon={ScanFace} testId="admin-stat-pan" />
+      <StatCard to="/admin/fraud" label="Open fraud flags" value={d?.fraudOpen} icon={ShieldAlert} tone="text-brand" testId="admin-stat-fraud" /><StatCard to="/admin/disputes?tab=evaluations" label="Evaluations" value={d?.evaluations} icon={Gauge} testId="admin-stat-evaluations" />
+      <StatCard to="/admin/disputes" label="Disputes (overdue)" value={d && `${d.openDisputes} (${d.overdueDisputes})`} icon={Gavel} testId="admin-stat-disputes" /><StatCard to="/admin/billing" label="Revenue" value={fmtInr(d?.revenue)} icon={IndianRupee} tone="text-emerald-600" testId="admin-stat-revenue" />
+      <StatCard to="/admin/jobs?status=active" label="Active jobs" value={d?.activeJobs} icon={Briefcase} testId="admin-stat-jobs" /><StatCard to="/admin/applications" label="Applications" value={(d?.funnel || []).reduce((a, f) => a + f.count, 0)} icon={FileText} testId="admin-stat-applications" />
     </div>
     <div className="mt-6 grid gap-6 lg:grid-cols-2">
-      <Panel title="Score distribution"><div className="h-64 p-4"><ResponsiveContainer><BarChart data={d?.scoreDistribution || []}><XAxis dataKey="bucket" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="count" fill="#D7141A" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel>
+      <Panel title="Score distribution (click a bar)" testId="admin-score-distribution"><div className="h-64 p-4"><ResponsiveContainer><BarChart data={(d?.scoreDistribution || []).map((x) => ({ ...x, label: BUCKETS[x.bucket] ? `${BUCKETS[x.bucket][0]}–${BUCKETS[x.bucket][1]}` : x.bucket }))}><XAxis dataKey="label" tick={{ fontSize: 11 }} /><YAxis allowDecimals={false} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="count" fill="#D7141A" radius={[6, 6, 0, 0]} cursor="pointer" onClick={openBucket} /></BarChart></ResponsiveContainer></div></Panel>
       <div className="lg:col-span-2"><AdminActivityFeed compact /></div>
-      <Panel title="Application funnel & provider costs"><div className="space-y-2 p-5 text-sm">{(d?.funnel || []).map((f) => <div key={f._id} className="flex justify-between"><StatusBadge status={f._id} /><b>{f.count}</b></div>)}<div className="border-t pt-3 text-slate-500">PAN checks: {d?.providerCosts?.panChecks} (est. {fmtInr(d?.providerCosts?.estimatedPanCostInr)}) · Messages sent: {d?.providerCosts?.emails}</div></div></Panel>
+      <Panel title="Application funnel & provider costs"><div className="space-y-2 p-5 text-sm">{(d?.funnel || []).map((f) => <Link key={f._id} to={`/admin/applications?status=${f._id}`} className="flex justify-between rounded-lg px-2 py-1 hover:bg-slate-50" data-testid={`funnel-${f._id}`}><StatusBadge status={f._id} /><b>{f.count}</b></Link>)}<div className="border-t pt-3 text-slate-500">PAN checks: {d?.providerCosts?.panChecks} (est. {fmtInr(d?.providerCosts?.estimatedPanCostInr)}) · Messages sent: {d?.providerCosts?.emails}</div></div></Panel>
     </div></div>);
 }
 
@@ -67,6 +73,7 @@ export function AdminEmployers() {
         {r.kycStatus === 'pending' && <Button size="sm" variant="secondary" onClick={() => run(A.post(`/employers/${r._id}/kyc`, { kycStatus: 'rejected' })).then(reload)}>Reject</Button>}
         {r.kycStatus === 'approved' && <Button size="sm" variant="ghost" onClick={() => run(A.post(`/employers/${r._id}/kyc`, { kycStatus: 'suspended' })).then(reload)}>Suspend</Button>}
         <Button size="sm" variant="ghost" onClick={() => setCredits({ id: r._id, reload })}>Credits</Button>
+        <Link to={`/admin/employers/${r._id}`} className="btn-secondary btn-sm" data-testid={`employer-360-${r._id}`}>Full view</Link>
       </div>) },
     ]} />
     <FormModal open={Boolean(credits)} onClose={() => setCredits(null)} title="Adjust credits" fields={[{ name: 'amount', label: 'Amount (+/-)', type: 'number', required: true }, { name: 'reason', label: 'Reason', required: true }]} onSubmit={(f) => run(A.post(`/employers/${credits.id}/credits`, f)).then(credits.reload)} />

@@ -3,12 +3,13 @@ import { useRecord } from '../../context/RecordContext';
 
 const INTERACTIVE = 'button,a,input,select,textarea,label';
 
-export default function Table({ columns, rows, loading, empty = 'Nothing here yet', testId = 'data-table', model }) {
+export default function Table({ columns, rows, loading, empty = 'Nothing here yet', testId = 'data-table', model, onRowClick }) {
   const rec = useRecord();
   const target = (r) => (typeof model === 'function' ? model(r) : model && [model, r._id || r.id]);
-  const clickable = Boolean(rec && model);
+  const clickable = Boolean((rec && model) || onRowClick);
   const onClick = (e, r) => {
     if (!clickable || e.target.closest(INTERACTIVE)) return;
+    if (onRowClick) { onRowClick(r); return; }
     const t = target(r);
     if (t?.[1]) rec.open(t[0], t[1]);
   };

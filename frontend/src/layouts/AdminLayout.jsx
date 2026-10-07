@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Building2, ScanFace, ShieldAlert, Gauge, Gavel, FileSignature, DoorOpen, Briefcase, CreditCard, FileText, KeyRound, ScrollText, Settings, LifeBuoy, Megaphone, Timer, Calculator, ListChecks, Database, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, ScanFace, ShieldAlert, Gauge, Gavel, FileSignature, DoorOpen, Briefcase, CreditCard, FileText, KeyRound, ScrollText, Settings, LifeBuoy, Megaphone, Timer, Calculator, ListChecks, Database, Activity, Contact } from 'lucide-react';
 import DashboardShell from '../components/layout/DashboardShell';
 import { useAuth } from '../hooks/useAuth';
 import { RecordProvider } from '../context/RecordContext';
@@ -8,7 +8,9 @@ const NAV = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { section: 'People' },
   { to: '/admin/users', label: 'Users', icon: Users },
+  { to: '/admin/employees', label: 'Employees', icon: Contact },
   { to: '/admin/employers', label: 'Employers', icon: Building2 },
+  { to: '/admin/applications', label: 'Applications', icon: FileText },
   { to: '/admin/verification', label: 'Verification queue', icon: ScanFace },
   { to: '/admin/fraud', label: 'Duplicate & fraud', icon: ShieldAlert },
   { section: 'Score & records' },

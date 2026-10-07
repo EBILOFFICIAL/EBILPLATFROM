@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 export function PageHeader({ title, subtitle, actions, eyebrow }) {
   return (
     <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -11,15 +12,17 @@ export function PageHeader({ title, subtitle, actions, eyebrow }) {
   );
 }
 
-export function StatCard({ label, value, icon: Icon, tone = 'text-ink', testId }) {
+export function StatCard({ label, value, icon: Icon, tone = 'text-ink', testId, to }) {
+  const Wrap = to ? Link : 'div';
   return (
-    <div data-testid={testId} className="card p-5">
+    <Wrap to={to} data-testid={testId} className={`card block p-5 ${to ? 'transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-lg' : ''}`}>
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</span>
         {Icon && <Icon className="h-4 w-4 text-slate-400" />}
       </div>
       <div className={`mt-3 font-display text-3xl font-extrabold ${tone}`}>{value ?? '—'}</div>
-    </div>
+      {to && <div className="mt-2 text-[11px] font-semibold text-brand">View →</div>}
+    </Wrap>
   );
 }
 

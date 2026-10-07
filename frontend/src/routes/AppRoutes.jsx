@@ -13,6 +13,7 @@ import Jobs from '../pages/public/Jobs';
 import JobDetail from '../pages/public/JobDetail';
 import VerifyReport from '../pages/public/VerifyReport';
 import AdminAlgorithm from '../pages/admin/Algorithm';
+import { AdminEmployees, AdminApplications, EmployeeOverview, EmployerOverview } from '../pages/admin/Insights';
 import AdminQuestionnaire from '../pages/admin/Questionnaire';
 import { DataExplorer, AdminActivity } from '../pages/admin/DataExplorer';
 import Login from '../pages/auth/Login';
@@ -92,6 +93,10 @@ export default function AppRoutes() {
         <Route path="employers" element={<AdminEmployers />} />
         <Route path="verification" element={<AdminVerification />} />
         <Route path="fraud" element={<AdminFraud />} />
+        <Route path="employees" element={<AdminEmployees />} />
+        <Route path="employees/:id" element={<EmployeeOverview />} />
+        <Route path="employers/:id" element={<EmployerOverview />} />
+        <Route path="applications" element={<AdminApplications />} />
         <Route path="algorithm" element={<AdminAlgorithm />} />
         <Route path="questionnaire" element={<AdminQuestionnaire />} />
         <Route path="activity" element={<AdminActivity />} />

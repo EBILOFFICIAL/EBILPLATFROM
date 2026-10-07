@@ -16,6 +16,7 @@ const verification = require('../../controllers/admin/verificationAdmin');
 const oversight = require('../../controllers/admin/oversightAdmin');
 const system = require('../../controllers/admin/systemAdmin');
 const dataAdmin = require('../../controllers/admin/dataAdmin');
+const insight = require('../../controllers/admin/insightAdmin');
 const audit$ = require('../../services/auditService');
 
 const SENSITIVE = /password|secret|token|otp|code/i;
@@ -39,6 +40,11 @@ const crudRoutes = (path, ctrl, perm) => {
 };
 
 router.use(authenticate, requireRole('admin'), trackAdmin);
+router.get('/employees', p('users.view'), insight.employees);
+router.get('/employees/:id/overview', p('users.view'), insight.employee);
+router.get('/employers/:id/overview', p('employers.view'), insight.employer);
+router.get('/applications', p('users.view'), insight.applications);
+router.put('/applications/:id/status', p('data.manage'), insight.applicationStatus);
 router.get('/data', p('users.view'), dataAdmin.models);
 router.get('/data/:model', p('users.view'), dataAdmin.list);
 router.get('/data/:model/:id', p('users.view'), dataAdmin.get);
