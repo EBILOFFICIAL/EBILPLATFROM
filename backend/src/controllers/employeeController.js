@@ -36,7 +36,8 @@ module.exports = {
   }),
   exportData: h(async (req, res) => ok(res, await employee.exportData(req.profile, req.user))),
   requestDeletion: h(async (req, res) => { await employee.requestDeletion(req.profile); ok(res, null, 'Deletion request recorded. Our grievance officer will process it within legal retention limits'); }),
-  notifications: h(async (req, res) => ok(res, await notifications.list(req.user._id))),
-  readNotifications: h(async (req, res) => { await notifications.markRead(req.user._id); ok(res, null); }),
+  notifications: h(async (req, res) => ok(res, await notifications.list(req.user._id, { type: req.query.type }))),
+  unreadNotifications: h(async (req, res) => ok(res, { count: await notifications.unreadCount(req.user._id) })),
+  readNotifications: h(async (req, res) => { await notifications.markRead(req.user._id, req.body?.id); ok(res, null); }),
   employersDirectory: h(async (req, res) => ok(res, await Employer.find({ kycStatus: 'approved' }).select('companyName city').sort({ companyName: 1 }).lean())),
 };

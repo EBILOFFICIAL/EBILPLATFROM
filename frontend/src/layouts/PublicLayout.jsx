@@ -7,9 +7,9 @@ import { useFetch } from '../hooks/usePagination';
 import { publicService } from '../services/jobService';
 import { HOME_BY_ROLE } from '../constants';
 
-const NAV = [['/platform', 'Platform'], ['/score-system', 'Score System'], ['/how-it-works', 'How It Works'], ['/jobs', 'Jobs'], ['/pricing', 'Pricing'], ['/about', 'About']];
+const NAV = [['/platform', 'Platform'], ['/score-system', 'Score System'], ['/how-it-works', 'How It Works'], ['/jobs', 'Jobs'], ['/verify', 'Verify Report'], ['/pricing', 'Pricing'], ['/about', 'About']];
 const FOOT = [
-  ['Platform', [['/platform', 'Platform'], ['/score-system', 'Score System'], ['/how-it-works', 'How It Works'], ['/jobs', 'Jobs'], ['/pricing', 'Pricing']]],
+  ['Platform', [['/platform', 'Platform'], ['/score-system', 'Score System'], ['/how-it-works', 'How It Works'], ['/jobs', 'Jobs'], ['/verify', 'Verify Report'], ['/pricing', 'Pricing']]],
   ['Company', [['/about', 'About Us'], ['/csr', 'CSR'], ['/contact', 'Contact Us'], ['/faq', 'FAQ']]],
   ['Trust', [['/privacy', 'Privacy Policy'], ['/terms', 'Terms'], ['/security', 'Security'], ['/compliance', 'Compliance']]],
   ['Portals', [['/login?portal=employee', 'Employee Login'], ['/login?portal=employer', 'Employer Login'], ['/login?portal=admin', 'Admin Login'], ['/register', 'Register']]],

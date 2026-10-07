@@ -1,5 +1,6 @@
 import { LayoutDashboard, Briefcase, Star, Gavel, Search, FileCheck2, ShieldCheck, LogOut as ExitIcon, ListChecks, Settings, Bell, LineChart } from 'lucide-react';
 import DashboardShell from '../components/layout/DashboardShell';
+import NotificationBell from '../components/common/NotificationBell';
 import { useAuth } from '../hooks/useAuth';
 
 const NAV = [
@@ -21,5 +22,5 @@ const NAV = [
 
 export default function EmployeeLayout() {
   const { user } = useAuth();
-  return <DashboardShell nav={NAV} title="Career Hub" badge={<span>EIBIL ID <b className="font-mono text-ink">{user?.profile?.eibilId}</b> · PAN {user?.profile?.panMasked || 'not verified'}</span>} />;
+  return <DashboardShell nav={NAV} title="Career Hub" headerExtra={<NotificationBell />} badge={<span>EIBIL ID <b className="font-mono text-ink">{user?.profile?.eibilId}</b> · PAN {user?.profile?.panMasked || 'not verified'}</span>} />;
 }

@@ -45,6 +45,7 @@ export default function AppRoutes() {
         <Route path="contact" element={<Contact />} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="jobs/:id" element={<JobDetail />} />
+        <Route path="verify" element={<VerifyReport />} />
         <Route path="verify/:token" element={<VerifyReport />} />
       </Route>
       <Route element={<AuthLayout />}>

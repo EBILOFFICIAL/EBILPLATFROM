@@ -88,50 +88,111 @@ async function getForEmployer(employer, checkId, req) {
 
 const viewers = (profileId) => VerificationCheck.find({ employeeId: profileId, employerId: { $ne: null } }).populate('employerId', 'companyName').select('-snapshot').sort({ createdAt: -1 }).lean();
 
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const newVerifyCode = () => {
+  const b = require('crypto').randomBytes(8);
+  const c = [...b].map((x) => CODE_CHARS[x % CODE_CHARS.length]).join('');
+  return `EIB-${c.slice(0, 4)}-${c.slice(4)}`;
+};
+
 async function selfReport(profileId) {
   const snapshot = await build(profileId, {});
-  return VerificationCheck.create({ employeeId: profileId, creditsUsed: 0, snapshot, verifyToken: randomToken(12) });
+  return VerificationCheck.create({ employeeId: profileId, creditsUsed: 0, snapshot, verifyToken: newVerifyCode() });
 }
+
+const BRAND = '#D7141A';
+const INK = '#0F172A';
+const MUTED = '#64748B';
+const fmtD = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Present');
 
 async function pdf(profileId) {
   const PDFDocument = require('pdfkit');
   const QRCode = require('qrcode');
   const check = await selfReport(profileId);
   const s = check.snapshot;
-  const url = `${env.clientUrl}/verify/${check.verifyToken}`;
-  const qr = await QRCode.toBuffer(url, { width: 120, margin: 1 });
-  const doc = new PDFDocument({ margin: 48, size: 'A4' });
+  const code = check.verifyToken;
+  const url = `${env.clientUrl}/verify/${code}`;
+  const qr = await QRCode.toBuffer(url, { width: 220, margin: 1, color: { dark: INK } });
+  const doc = new PDFDocument({ margin: 48, size: 'A4', info: { Title: `EIBIL Score Report - ${s.identity.fullName}`, Author: 'EIBIL' } });
   const chunks = [];
   doc.on('data', (c) => chunks.push(c));
   const done = new Promise((r) => doc.on('end', () => r(Buffer.concat(chunks))));
-  doc.rect(0, 0, doc.page.width, 70).fill('#D7141A');
-  doc.fillColor('#fff').fontSize(24).font('Helvetica-Bold').text('EIBIL', 48, 22).fontSize(9).font('Helvetica').text('Employee Information Base of India - Employment Report', 130, 32);
-  doc.fillColor('#0F172A').moveDown(3).fontSize(16).font('Helvetica-Bold').text(s.identity.fullName, 48, 95);
-  doc.fontSize(10).font('Helvetica').fillColor('#475569').text(`EIBIL ID: ${s.identity.eibilId}   PAN: ${s.identity.panMasked || '-'}   PAN verified: ${s.identity.panVerified ? 'Yes' : 'No'}`);
-  doc.text(`Score as of: ${new Date(s.asOf).toISOString()}   Generated: ${new Date(s.generatedAt).toISOString()}`);
-  doc.image(qr, doc.page.width - 168, 85, { width: 110 });
-  doc.moveDown().fillColor('#D7141A').fontSize(36).font('Helvetica-Bold').text(String(s.score.value ?? 'N/A'), 48, 150);
-  doc.fillColor('#0F172A').fontSize(12).text(`Band: ${s.score.band || '-'}  (range ${s.score.range.join('-')})`);
-  const section = (t) => { doc.moveDown().fillColor('#0F172A').fontSize(13).font('Helvetica-Bold').text(t); doc.font('Helvetica').fontSize(10).fillColor('#334155'); };
-  section('Verified employment');
-  s.employment.forEach((e) => doc.text(`- ${e.company} | ${e.designation} | ${new Date(e.startDate).toDateString()} - ${e.endDate ? new Date(e.endDate).toDateString() : 'Present'} | ${e.status}`));
-  section('Evaluation summary');
+  const W = doc.page.width;
+  const L = 48;
+  const CW = W - 96;
+
+  doc.rect(0, 0, W, 84).fill(BRAND);
+  doc.fillColor('#fff').font('Helvetica-Bold').fontSize(26).text('EIBIL', L, 24);
+  doc.font('Helvetica').fontSize(8.5).text('Employment Integrity & Background Intelligence League', L, 54);
+  doc.font('Helvetica-Bold').fontSize(11).text('VERIFIED SCORE REPORT', W - 260, 30, { width: 212, align: 'right' });
+  doc.font('Helvetica').fontSize(8.5).text(`Generated ${new Date(s.generatedAt).toLocaleString('en-IN')}`, W - 260, 48, { width: 212, align: 'right' });
+
+  doc.fillColor(INK).font('Helvetica-Bold').fontSize(18).text(s.identity.fullName, L, 108);
+  doc.font('Helvetica').fontSize(9.5).fillColor(MUTED)
+    .text(`EIBIL ID  ${s.identity.eibilId}     PAN  ${s.identity.panMasked || '-'}  ${s.identity.panVerified ? '(verified)' : '(unverified)'}`, L, 132);
+
+  doc.roundedRect(L, 160, 250, 120, 10).fill('#F8FAFC');
+  doc.fillColor(MUTED).fontSize(8).font('Helvetica-Bold').text('EIBIL SCORE', L + 18, 174, { characterSpacing: 1 });
+  doc.fillColor(BRAND).font('Helvetica-Bold').fontSize(46).text(String(s.score.value ?? 'N/A'), L + 18, 188);
+  doc.fillColor(INK).fontSize(11).text(`${s.score.band || '-'}`, L + 18, 240);
+  doc.fillColor(MUTED).font('Helvetica').fontSize(8).text(`Range ${s.score.range.join(' - ')}   |   As of ${new Date(s.asOf).toLocaleString('en-IN')}`, L + 18, 258);
+
+  const dims = ['performance', 'professionalism', 'reliability', 'conduct'];
   const es = s.evaluationSummary;
-  doc.text(`${es.count} evaluations. Performance ${es.performance ?? '-'}, Professionalism ${es.professionalism ?? '-'}, Reliability ${es.reliability ?? '-'}, Conduct ${es.conduct ?? '-'}`);
-  section('Exit records');
-  if (!s.exits.length) doc.text('No published separations.');
-  s.exits.forEach((x) => doc.text(`- ${x.company}: ${x.separationType} | ${x.status} | rehire: ${x.rehireEligibility || '-'}${x.rebuttals.length ? ` | Employee rebuttal: "${x.rebuttals[0].statement}"` : ''}`));
-  doc.moveDown(2).fontSize(8).fillColor('#64748B').text(`Verify authenticity: ${url}. Records are sealed in a SHA-256 hash-chained ledger. Salary/CTC is never included.`);
+  const dx = L + 270;
+  doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8).text(`DIMENSIONS  (${es.count} accepted evaluations)`, dx, 166, { characterSpacing: 1 });
+  dims.forEach((d, i) => {
+    const y = 186 + i * 24;
+    const v = es[d];
+    doc.fillColor(INK).font('Helvetica').fontSize(9.5).text(d[0].toUpperCase() + d.slice(1), dx, y);
+    doc.font('Helvetica-Bold').text(v ?? '-', dx + 180, y, { width: 46, align: 'right' });
+    doc.roundedRect(dx, y + 13, 226, 4, 2).fill('#E2E8F0');
+    if (v) doc.roundedRect(dx, y + 13, (226 * Math.min(v, 100)) / 100, 4, 2).fill(BRAND);
+  });
+
+  let y = 304;
+  const heading = (t) => {
+    doc.fillColor(INK).font('Helvetica-Bold').fontSize(12).text(t, L, y);
+    doc.moveTo(L, y + 18).lineTo(L + CW, y + 18).lineWidth(0.5).strokeColor('#E2E8F0').stroke();
+    y += 28;
+  };
+  heading('Verified employment history');
+  const jobs = s.employment.filter((e) => e.status === 'verified');
+  if (!jobs.length) { doc.fillColor(MUTED).font('Helvetica').fontSize(9.5).text('No employer-verified records yet.', L, y); y += 18; }
+  jobs.forEach((e) => {
+    doc.fillColor(INK).font('Helvetica-Bold').fontSize(10).text(e.company, L, y, { width: 300 });
+    doc.fillColor(MUTED).font('Helvetica').fontSize(9).text(`${e.designation || '-'}${e.department ? ` · ${e.department}` : ''}`, L, y + 13, { width: 300 });
+    doc.fillColor(INK).fontSize(9).text(`${fmtD(e.startDate)} - ${e.isCurrent ? 'Present' : fmtD(e.endDate)}`, L + 310, y, { width: 140 });
+    doc.fillColor('#059669').font('Helvetica-Bold').fontSize(8).text('VERIFIED', L + CW - 60, y, { width: 60, align: 'right' });
+    y += 34;
+  });
+
+  y = Math.max(y + 10, 560);
+  doc.roundedRect(L, y, CW, 150, 10).lineWidth(1).strokeColor(BRAND).stroke();
+  doc.image(qr, L + 14, y + 14, { width: 122 });
+  doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8).text('VERIFICATION CODE', L + 156, y + 22, { characterSpacing: 1 });
+  doc.fillColor(INK).font('Courier-Bold').fontSize(22).text(code, L + 156, y + 36);
+  doc.fillColor(INK).font('Helvetica').fontSize(9).text('Recruiters: scan the QR code or enter this code at', L + 156, y + 70, { width: CW - 170 });
+  doc.fillColor(BRAND).font('Helvetica-Bold').text(`${env.clientUrl}/verify`, L + 156, y + 84, { width: CW - 170, link: url, underline: true });
+  doc.fillColor(MUTED).font('Helvetica').fontSize(8).text('to confirm this report is authentic and unaltered.', L + 156, y + 100, { width: CW - 170 });
+
+  doc.fillColor(MUTED).fontSize(7.5).text('Records are sealed in a SHA-256 hash-chained, append-only ledger. Salary/CTC is never included. The employee can view, rebut and dispute every record. This report reflects the score as of the timestamp above.', L, 770, { width: CW, align: 'center' });
   doc.end();
   return done;
 }
 
 async function publicVerify(token) {
-  const check = await VerificationCheck.findOne({ verifyToken: token }).lean();
-  if (!check) throw AppError.notFound('Report token not found or invalid');
+  const raw = String(token || '').trim();
+  const check = await VerificationCheck.findOne({ verifyToken: { $in: [raw, raw.toUpperCase()] } }).lean();
+  if (!check) throw AppError.notFound('Report code not found or invalid');
   const integrity = await ledger.verifyIntegrity();
   const s = check.snapshot;
-  return { authentic: true, eibilId: s.identity.eibilId, fullName: s.identity.fullName, panMasked: s.identity.panMasked, score: s.score.value, band: s.score.band, asOf: s.asOf, generatedAt: check.createdAt, ledgerValid: integrity.valid };
+  return {
+    authentic: true, code: check.verifyToken, eibilId: s.identity.eibilId, fullName: s.identity.fullName, panMasked: s.identity.panMasked,
+    score: s.score.value, band: s.score.band, asOf: s.asOf, generatedAt: check.createdAt, ledgerValid: integrity.valid,
+    dimensions: s.evaluationSummary,
+    employment: (s.employment || []).filter((e) => e.status === 'verified').map((e) => ({ company: e.company, designation: e.designation, startDate: e.startDate, endDate: e.endDate, isCurrent: e.isCurrent })),
+  };
 }
 
 module.exports = { build, generateForEmployer, getForEmployer, viewers, pdf, publicVerify, selfReport };

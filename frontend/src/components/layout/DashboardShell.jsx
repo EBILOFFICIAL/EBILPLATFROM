@@ -4,7 +4,7 @@ import { LogOut, Menu, X } from 'lucide-react';
 import Logo from '../common/Logo';
 import { useAuth } from '../../hooks/useAuth';
 
-export default function DashboardShell({ nav, title, badge }) {
+export default function DashboardShell({ nav, title, badge, headerExtra }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -38,7 +38,7 @@ export default function DashboardShell({ nav, title, badge }) {
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white/90 px-5 backdrop-blur lg:px-8">
           <button className="lg:hidden" onClick={() => setOpen(!open)} data-testid="shell-menu-toggle">{open ? <X /> : <Menu />}</button>
           <div className="hidden text-sm text-slate-500 lg:block">{badge}</div>
-          <div className="text-xs font-semibold text-slate-400">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+          <div className="flex items-center gap-3">{headerExtra}<div className="hidden text-xs font-semibold text-slate-400 sm:block">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
         </header>
         <main className="mx-auto max-w-7xl px-5 py-8 lg:px-8"><Outlet /></main>
       </div>

@@ -29,6 +29,7 @@ router.get('/report.pdf', c.reportPdf);
 router.get('/data-export', c.exportData);
 router.post('/deletion-request', c.requestDeletion);
 router.get('/notifications', c.notifications);
+router.get('/notifications/unread-count', c.unreadNotifications);
 router.post('/notifications/read', c.readNotifications);
 router.get('/employers', c.employersDirectory);
 router.get('/applications', jobs.myApplications);

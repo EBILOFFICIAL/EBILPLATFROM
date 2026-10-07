@@ -7,6 +7,8 @@ const Notification = mongoose.model('Notification', new mongoose.Schema({
   title: String,
   body: String,
   link: String,
+  type: { type: String, default: 'general', index: true },
+  meta: Mixed,
   read: { type: Boolean, default: false },
 }, { timestamps: true }));
 

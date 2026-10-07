@@ -4,6 +4,8 @@ const AppError = require('../utils/AppError');
 const ledger = require('./ledgerService');
 const score = require('./scoreService');
 const notify = require('./notificationService');
+const env = require('../config/env');
+const scoreChangeEmail = require('../templates/email/scoreChange');
 
 async function applyScoreEvent({ employeeId, delta, reason, source, refType, refId, evaluationId, negative = delta < 0, neverDecay = false, idempotencyKey, force = false }) {
   if (idempotencyKey) {
@@ -31,8 +33,15 @@ async function applyScoreEvent({ employeeId, delta, reason, source, refType, ref
   profile.band = score.bandFor(newScore, cfg.bands);
   profile.scoreUpdatedAt = new Date();
   await profile.save();
-  if (profile.userId && Math.abs(ev.delta) >= cfg.events.notifyThreshold) {
-    await notify.notify(profile.userId, { title: `Your EIBIL score changed by ${ev.delta > 0 ? '+' : ''}${ev.delta}`, body: `${reason}. New score: ${newScore}.`, link: '/employee/score', email: true });
+  if (profile.userId && ev.delta !== 0) {
+    const meta = { oldScore, newScore, delta: ev.delta, reason, source, scoreEventId: ev._id };
+    await notify.notify(profile.userId, {
+      type: 'score', meta, link: '/employee/score',
+      title: `Your EIBIL score ${ev.delta > 0 ? 'increased' : 'decreased'} by ${Math.abs(ev.delta)} points`,
+      body: `${reason}. ${oldScore} → ${newScore}.`,
+      email: Math.abs(ev.delta) >= (cfg.events.notifyThreshold || 1),
+      emailContent: (u) => scoreChangeEmail({ name: u.name, ...meta, link: `${env.clientUrl}/employee/score` }),
+    });
   }
   return ev;
 }

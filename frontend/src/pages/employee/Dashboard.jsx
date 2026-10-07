@@ -5,6 +5,7 @@ import ScoreTrend from '../../components/charts/ScoreTrend';
 import { PageHeader, Panel } from '../../components/common/Layout';
 import Button from '../../components/common/Button';
 import VerifyPAN from '../auth/VerifyPAN';
+import ScoreAlerts from './ScoreAlerts';
 import { useAuth } from '../../hooks/useAuth';
 import { useFetch } from '../../hooks/usePagination';
 import { employeeService } from '../../services/employeeService';
@@ -35,6 +36,7 @@ export default function EmployeeDashboard() {
           {!user.mobileVerified && <div className="px-5 pb-5"><Link to="/employee/settings" className="text-xs font-semibold text-brand">Verify mobile in settings →</Link></div>}
         </Panel>
       </div>
+      {p?.panVerified && <div className="mt-6"><ScoreAlerts /></div>}
     </div>
   );
 }
