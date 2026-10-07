@@ -48,6 +48,33 @@ export function Notifications() {
     <Panel><Table loading={loading} rows={data} testId="notifications-table" columns={[{ title: '', render: (r) => !r.read && <span className="inline-block h-2 w-2 rounded-full bg-brand" /> }, { title: 'Title', render: (r) => <b>{r.title}</b> }, { title: 'Message', key: 'body' }, { title: 'When', render: (r) => fmtDateTime(r.createdAt) }]} /></Panel></div>);
 }
 
+export function ResumeManager() {
+  const { data: resume, reload, loading } = useFetch(() => employeeService.resume(), []);
+  const [busy, setBusy] = useState(false);
+  const pick = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) return alert('Resume must be under 5 MB');
+    setBusy(true);
+    try { await run(employeeService.uploadResume(f)); reload(); } catch { /* toast */ } finally { setBusy(false); }
+  };
+  const remove = async () => { if (window.confirm('Remove your resume? Future applications will not include it.')) { await run(employeeService.deleteResume()); reload(); } };
+  return (<div className="flex flex-wrap items-center justify-between gap-4 p-5">
+    {loading ? <span className="text-sm text-slate-400">Loading…</span> : resume ? (
+      <div className="flex items-center gap-3" data-testid="resume-current">
+        <FileText className="h-8 w-8 text-brand" />
+        <div><div className="text-sm font-bold text-ink">{resume.fileName}</div><div className="text-xs text-slate-400">{Math.round(resume.size / 1024)} KB · updated {fmtDate(resume.updatedAt)}</div></div>
+      </div>
+    ) : <p className="text-sm text-slate-500" data-testid="resume-empty">No resume uploaded yet. Upload one and it will be attached to every application.</p>}
+    <div className="flex items-center gap-2">
+      {resume && <Button size="sm" variant="secondary" onClick={() => run(employeeService.downloadResume())} data-testid="resume-download"><Download className="h-4 w-4" />Download</Button>}
+      <label className="btn-primary btn-sm cursor-pointer" data-testid="resume-upload-btn"><Upload className="mr-1 inline h-4 w-4" />{resume ? 'Replace' : 'Upload resume'}<input type="file" accept=".pdf,.doc,.docx" className="hidden" disabled={busy} onChange={pick} data-testid="resume-upload-input" /></label>
+      {resume && <Button size="sm" variant="ghost" onClick={remove} data-testid="resume-delete"><Trash2 className="h-4 w-4" /></Button>}
+    </div>
+  </div>);
+}
+
 export function Settings() {
   const { user, refresh } = useAuth();
   const [pw, setPw] = useState({});
@@ -55,6 +82,7 @@ export function Settings() {
   const [code, setCode] = useState('');
   const { data: sessions, reload } = useFetch(() => authService.sessions(), []);
   return (<div className="space-y-6"><PageHeader title="Settings & security" />
+    <Panel title="My resume" className="mt-6" testId="resume-panel"><ResumeManager /></Panel>
     <Panel title="Change password"><form className="grid gap-4 p-5 sm:grid-cols-3" onSubmit={(e) => { e.preventDefault(); run(authService.changePassword(pw)).then(() => setPw({})).catch(() => {}); }}>
       <Field label="Current password" name="currentPassword" type="password" value={pw.currentPassword} onChange={(k, v) => setPw({ ...pw, [k]: v })} required />
       <Field label="New password" name="password" type="password" value={pw.password} onChange={(k, v) => setPw({ ...pw, [k]: v })} required />

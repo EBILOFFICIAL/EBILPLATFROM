@@ -658,13 +658,13 @@ class TestEvaluationWithAnswers:
             pytest.skip("priya not in roster")
         rec_id = rec.get("_id") or rec.get("id")
         # Use a far-off period to avoid dedup collisions
-        period = "2024-Q2"
+        period = "2023-Q2"
         payload = {"employmentRecordId": rec_id, "period": period, "answers": answers, "submit": True}
         r = acme_session.post(f"{API}/employer/evaluations", json=payload, timeout=20)
-        if r.status_code == 409:
-            period = "2024-Q3"
-            payload["period"] = period
-            r = acme_session.post(f"{API}/employer/evaluations", json=payload, timeout=20)
+        for alt in ("2023-Q3", "2023-Q4", "2022-Q1"):
+            if r.status_code == 409:
+                payload["period"] = alt
+                r = acme_session.post(f"{API}/employer/evaluations", json=payload, timeout=20)
         assert r.status_code in (200, 201), f"evaluation create failed: {r.status_code} {r.text}"
         ev = r.json().get("data", r.json())
         for d in ("performance", "professionalism", "reliability", "conduct"):
@@ -832,3 +832,207 @@ class TestAdminRerate:
         # score may be the same if trust weighting zeros out, so just assert endpoint didn't crash and ev updated
         detail = r2.json().get("data", {}).get("doc", {})
         assert detail.get("performance") == new_perf, f"performance not updated: {detail.get('performance')}"
+
+
+# ---------- NEW: Resume lifecycle, apply with resume, applicants contact, report contact ----------
+
+EMPLOYER_NIMBUS = ("hr@nimbusfin.in", "Demo@12345")
+
+MINI_PDF = b"%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 300 144]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"
+
+
+@pytest.fixture(scope="session")
+def nimbus_session():
+    s, _, _ = _login(*EMPLOYER_NIMBUS)
+    return s
+
+
+class TestResumeLifecycle:
+    """Priya already has a resume per seed. Use Rahul for empty-state → upload → replace → delete."""
+
+    def _get_meta(self, s):
+        r = s.get(f"{API}/employee/resume", timeout=10)
+        assert r.status_code == 200
+        return r.json().get("data")
+
+    def test_rahul_empty_then_upload_download_replace_delete(self, rahul_session):
+        # Empty
+        meta = self._get_meta(rahul_session)
+        if meta:  # cleanup leftover from previous run
+            rahul_session.delete(f"{API}/employee/resume", timeout=10)
+            meta = self._get_meta(rahul_session)
+        assert meta in (None, {}, []), f"should be empty: {meta}"
+
+        # Upload
+        files = {"resume": ("rahul_v1.pdf", MINI_PDF, "application/pdf")}
+        r = rahul_session.post(f"{API}/employee/resume", files=files, timeout=20)
+        assert r.status_code in (200, 201), f"upload failed: {r.status_code} {r.text}"
+        up = r.json().get("data", r.json())
+        assert up.get("fileName") == "rahul_v1.pdf"
+        assert up.get("size") == len(MINI_PDF)
+
+        meta = self._get_meta(rahul_session)
+        assert meta and meta.get("fileName") == "rahul_v1.pdf"
+        first_id = meta.get("_id") or meta.get("id")
+
+        # Download
+        d = rahul_session.get(f"{API}/employee/resume/download", timeout=15)
+        assert d.status_code == 200
+        assert "pdf" in d.headers.get("content-type", "").lower()
+        assert d.content == MINI_PDF
+
+        # Replace -> old record deleted
+        files2 = {"resume": ("rahul_v2.pdf", MINI_PDF + b"\n% v2\n", "application/pdf")}
+        r2 = rahul_session.post(f"{API}/employee/resume", files=files2, timeout=20)
+        assert r2.status_code in (200, 201)
+        meta2 = self._get_meta(rahul_session)
+        assert meta2 and meta2.get("fileName") == "rahul_v2.pdf"
+        new_id = meta2.get("_id") or meta2.get("id")
+        assert new_id != first_id
+
+        # Delete
+        rd = rahul_session.delete(f"{API}/employee/resume", timeout=10)
+        assert rd.status_code == 200
+        meta3 = self._get_meta(rahul_session)
+        assert meta3 in (None, {}, []), f"should be deleted: {meta3}"
+
+        # Download when none -> 404
+        d2 = rahul_session.get(f"{API}/employee/resume/download", timeout=10)
+        assert d2.status_code == 404
+
+    def test_reject_non_pdf_doc_docx(self, rahul_session):
+        files = {"resume": ("hack.exe", b"MZ\x90", "application/x-msdownload")}
+        r = rahul_session.post(f"{API}/employee/resume", files=files, timeout=10)
+        assert r.status_code in (400, 415), f"bad type should be rejected: {r.status_code} {r.text}"
+
+    def test_reject_oversized(self, rahul_session):
+        big = b"%PDF-1.1\n" + b"A" * (5 * 1024 * 1024 + 10)
+        files = {"resume": ("big.pdf", big, "application/pdf")}
+        r = rahul_session.post(f"{API}/employee/resume", files=files, timeout=30)
+        assert r.status_code in (400, 413), f"oversized should be rejected: {r.status_code}"
+
+    def test_priya_has_seeded_resume(self, priya_session):
+        meta = priya_session.get(f"{API}/employee/resume", timeout=10).json().get("data")
+        assert meta and meta.get("fileName"), f"priya should have seeded resume: {meta}"
+        d = priya_session.get(f"{API}/employee/resume/download", timeout=15)
+        assert d.status_code == 200 and len(d.content) > 100
+
+
+class TestApplyWithResume:
+    def _open_job(self, employer_s):
+        jobs = employer_s.get(f"{API}/employer/jobs", timeout=10).json().get("data", [])
+        active = [j for j in jobs if (j.get("status") or "open") in ("open", "active", "published")]
+        return (active or jobs)[0]
+
+    def test_apply_with_resume_file_uses_it_and_updates_profile(self, acme_session, rahul_session):
+        # Need rahul to have fresh profile resume state; apply with a file (new upload)
+        # Ensure clean
+        rahul_session.delete(f"{API}/employee/resume", timeout=10)
+        job = self._open_job(acme_session)
+        files = {"resume": ("apply_r.pdf", MINI_PDF, "application/pdf")}
+        data = {"answers": "[]"}
+        r = rahul_session.post(f"{API}/jobs/{job['_id']}/apply", data=data, files=files, timeout=20)
+        if r.status_code == 409:
+            pytest.skip("Rahul already applied to this job in prior run; cannot re-apply")
+        assert r.status_code in (200, 201), f"apply with resume failed: {r.status_code} {r.text}"
+        # Profile resume should now point to the uploaded file
+        meta = rahul_session.get(f"{API}/employee/resume", timeout=10).json().get("data")
+        assert meta and meta.get("fileName") == "apply_r.pdf"
+
+    def test_apply_without_file_reuses_profile_resume(self, nimbus_session, priya_session):
+        # Priya has a seeded resume. Find a Nimbus job and apply without a file.
+        jobs = nimbus_session.get(f"{API}/employer/jobs", timeout=10).json().get("data", [])
+        if not jobs:
+            pytest.skip("no nimbus jobs")
+        job = jobs[0]
+        r = priya_session.post(f"{API}/jobs/{job['_id']}/apply", data={"answers": "[]"}, timeout=20)
+        if r.status_code == 409:
+            pytest.skip("Priya already applied to this job")
+        if r.status_code == 403:
+            pytest.skip(f"forbidden (e.g., consent/kyc): {r.text}")
+        assert r.status_code in (200, 201), f"apply without file failed: {r.status_code} {r.text}"
+        # Verify applicants row for that job has priya with a resumeId
+        apps = nimbus_session.get(f"{API}/employer/jobs/{job['_id']}/applicants", timeout=10).json().get("data", {})
+        rows = apps.get("applicants") or apps.get("items") or []
+        priya_row = next((a for a in rows if "priya" in ((a.get("employeeId") or {}).get("fullName") or "").lower()), None)
+        assert priya_row, "priya row missing in nimbus applicants"
+        assert (priya_row.get("resumeId") or {}).get("fileName"), f"resumeId not populated: {priya_row.get('resumeId')}"
+
+
+class TestEmployerApplicantsAndResumeDownload:
+    def test_acme_applicants_row_has_contact_and_resume(self, acme_session):
+        jobs = acme_session.get(f"{API}/employer/jobs", timeout=10).json().get("data", [])
+        assert jobs, "no acme jobs"
+        # Pick the job with the most applicants
+        best = None
+        for j in jobs:
+            apps = acme_session.get(f"{API}/employer/jobs/{j['_id']}/applicants", timeout=10).json().get("data", {})
+            rows = apps.get("applicants") or []
+            if rows and (best is None or len(rows) > best[1]):
+                best = (j, len(rows), rows)
+        assert best, "no job with applicants found for acme"
+        rows = best[2]
+        r0 = rows[0]
+        emp = r0.get("employeeId") or {}
+        assert emp.get("email"), f"missing email on applicant: {emp}"
+        assert emp.get("phone") is not None, f"missing phone: {emp}"
+        assert "city" in emp, f"missing city key: {emp}"
+        # resumeId may be None for a candidate who applied before upload; priya definitely has one
+        # Find any applicant with a resume attached and verify acme can download it
+        with_resume = next((a for a in rows if (a.get("resumeId") or {}).get("_id")), None)
+        if with_resume:
+            rid = with_resume["resumeId"]["_id"]
+            d = acme_session.get(f"{API}/employer/resumes/{rid}/download", timeout=15)
+            assert d.status_code == 200, f"acme should be able to download its applicant's resume: {d.status_code}"
+            assert len(d.content) > 50
+
+    def test_employer_without_access_cannot_download(self, nimbus_session, rahul_session):
+        # Create a fresh resume for Rahul; Nimbus has no application from Rahul and has not viewed Rahul's report
+        files = {"resume": ("rahul_403.pdf", MINI_PDF, "application/pdf")}
+        up = rahul_session.post(f"{API}/employee/resume", files=files, timeout=20)
+        assert up.status_code in (200, 201)
+        meta = rahul_session.get(f"{API}/employee/resume", timeout=10).json().get("data")
+        rid = meta.get("_id") or meta.get("id")
+        assert rid, f"could not get rahul resume id: {meta}"
+        r = nimbus_session.get(f"{API}/employer/resumes/{rid}/download", timeout=10)
+        assert r.status_code == 403, f"cross-employer download should 403: {r.status_code} {r.text[:120]}"
+
+    def test_report_viewer_can_download_resume(self, nimbus_session, priya_session):
+        # Nimbus views priya's report; should then be allowed to download her resume
+        prof = priya_session.get(f"{API}/employee/profile", timeout=10).json().get("data", {})
+        eibil = prof.get("eibilId") or (prof.get("profile") or {}).get("eibilId")
+        vr = nimbus_session.post(f"{API}/employer/verify-candidate", json={"query": eibil}, timeout=20)
+        if vr.status_code == 402:
+            pytest.skip("nimbus out of credits")
+        assert vr.status_code in (200, 201), vr.text
+        rid = vr.json().get("data", {}).get("resumeId")
+        if not rid:
+            pytest.skip("priya has no resume on profile right now")
+        # rid may be an ObjectId string
+        d = nimbus_session.get(f"{API}/employer/resumes/{rid}/download", timeout=15)
+        assert d.status_code == 200, f"viewer should be allowed: {d.status_code} {d.text}"
+
+
+class TestReportContact:
+    def test_verify_candidate_identity_has_contact(self, acme_session, priya_session):
+        prof = priya_session.get(f"{API}/employee/profile", timeout=10).json().get("data", {})
+        eibil = prof.get("eibilId") or (prof.get("profile") or {}).get("eibilId")
+        r = acme_session.post(f"{API}/employer/verify-candidate", json={"query": eibil}, timeout=20)
+        assert r.status_code in (200, 201), r.text
+        data = r.json().get("data", {})
+        ident = (data.get("snapshot") or {}).get("identity") or {}
+        assert ident.get("email"), f"identity missing email: {ident}"
+        assert ident.get("phone") is not None, f"identity missing phone: {ident}"
+        assert "city" in ident, f"identity missing city: {ident}"
+        assert "resumeAvailable" in ident, f"identity missing resumeAvailable: {ident}"
+        # resumeId on top-level response
+        rid = data.get("resumeId")
+        if ident.get("resumeAvailable"):
+            assert rid, "resumeAvailable=true but resumeId missing on verify-candidate response"
+        # Also /employer/reports/:id should return resumeId
+        cid = data.get("_id") or data.get("id")
+        r2 = acme_session.get(f"{API}/employer/reports/{cid}", timeout=10)
+        assert r2.status_code == 200, r2.text
+        d2 = r2.json().get("data", {})
+        if ident.get("resumeAvailable"):
+            assert d2.get("resumeId"), f"getForEmployer response missing resumeId: keys={list(d2.keys())}"

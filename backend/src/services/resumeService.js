@@ -26,9 +26,10 @@ async function upload(user, file) {
 // Upload and make it the candidate's current resume (replaces any previous one)
 async function setCurrent(user, file) {
   const resume = await upload(user, file);
+  // old resume is kept if any application still references it
   const profile = await EmployeeProfile.findOneAndUpdate({ userId: user._id }, { resumeId: resume._id, resumeUrl: null });
   if (!profile) throw AppError.notFound('Profile not found');
-  if (profile.resumeId) await Resume.deleteOne({ _id: profile.resumeId });
+  if (profile.resumeId && !(await Application.exists({ resumeId: profile.resumeId }))) await Resume.deleteOne({ _id: profile.resumeId });
   return resume;
 }
 

@@ -100,7 +100,8 @@ async function getForEmployer(employer, checkId, req) {
   const check = await VerificationCheck.findOne({ _id: checkId, employerId: employer._id }).lean();
   if (!check) throw AppError.notFound('Report not found');
   await audit.log({ req, action: 'report.reopened', entityType: 'VerificationCheck', entityId: check._id, subjectEmployeeId: check.employeeId });
-  return check;
+  const profile = await EmployeeProfile.findById(check.employeeId).select('resumeId').lean();
+  return { ...check, resumeId: profile?.resumeId || null };
 }
 
 const viewers = (profileId) => VerificationCheck.find({ employeeId: profileId, employerId: { $ne: null } }).populate('employerId', 'companyName').select('-snapshot').sort({ createdAt: -1 }).lean();
