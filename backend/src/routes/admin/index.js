@@ -46,7 +46,7 @@ router.put('/data/:model/:id', p('data.manage'), dataAdmin.update);
 router.delete('/data/:model/:id', p('data.manage'), dataAdmin.remove);
 router.get('/activity', p('dashboard.view'), dataAdmin.activity);
 router.get('/score/algorithm', p('score.view'), dataAdmin.algorithm);
-router.post('/score-config/apply', p('score.configure'), dataAdmin.applyConfig);
+router.post('/score-config/apply', p('score.configure'), validate(v.scoreApply), dataAdmin.applyConfig);
 router.post('/score-config/:id/activate', p('score.configure'), dataAdmin.activate);
 router.get('/analytics', p('dashboard.view'), analytics.dashboard);
 

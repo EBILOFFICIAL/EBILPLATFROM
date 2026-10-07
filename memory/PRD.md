@@ -16,6 +16,10 @@ Build EIBIL (Employment Integrity & Background Intelligence League) per the 482-
 - 2026-06: Downloadable branded PDF score report: score, as-of date, 4 dimensions, verified employment, QR code and a unique EIB-XXXX-XXXX code; public /verify page accepts the code (any case, spaces or dashes). Tests: iteration_2 (51 pass)
 - Note: the Node backend does NOT hot reload; run `sudo supervisorctl restart backend` after backend edits
 
+- 2026-06: Consent removed. Employers search by PAN, email or EIBIL ID and view the score instantly (1 credit), with a 'Reports viewed' history. The candidate is notified '<Company> viewed your EIBIL score' (in-app + MOCKED email); the employee 'Privacy & views' page lists the viewers
+- 2026-06: Evaluation questionnaire. The admin master bank (Question model) holds rating 1-5, yes/no and MCQ questions; each answer maps to 0-100 points, and each question has a dimension and a weight. Dimension = weighted average of points. The employer evaluation form uses the questionnaire; 12 default questions are created automatically
+- 2026-06: Admin full control. Score algorithm console (/admin/algorithm) with 6 formula steps, all values editable and a simulator; changes go live instantly, versioned, with audit log and ledger entries (no second-admin approval). Instant manual adjustments; 'Make live' on any version. Clicking any admin row opens a record drawer (all fields, edit/save/delete, linked records, history). Data explorer (/admin/data) covers every collection. Admin activity feed (/admin/activity + dashboard). Every admin write is audited (trackAdmin middleware). Admin re-rating an evaluation or overriding a score posts a ledger score event of the difference. Tests: iteration_3 (70/70)
+
 ## Backlog
 - P1: replace dummy Razorpay keys with real test keys and verify the checkout and webhook flows
 - P1: configure real PAN, email, SMS and storage providers; turn off EXPOSE_DEV_OTP for production

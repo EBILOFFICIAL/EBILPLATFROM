@@ -1,0 +1,33 @@
+{
+  "summary": "Full regression + new-feature testing for EIBIL changes: (1) consent-less employer verify-candidate (lookup by PAN/email/EIBIL ID), (2) questionnaire-based evaluations + admin question CRUD, (3) admin algorithm/apply/activate + manual adjust applied instantly, (4) Record Drawer / Data Explorer / Admin Activity, (5) admin re-rate + employeeProfile.currentScore override posts ledger. Extended /app/backend/tests/backend_test.py from 52 -> 70 tests. All 70 PASS. Frontend: verified all data-testids and flows on employer verify page (consent-request panel GONE, candidate-report renders instantly, reports table + Open button present, non-existent PAN shows 'No EIBIL' error), employee rahul /employee/consents viewers-table shows the view entry and notification bell shows 'Acme ... viewed your EIBIL score', employer /employer/evaluations evaluation-modal with 4 sections + live-dim-* widgets, admin /admin/questionnaire (question-new), /admin/algorithm (algo-step-1..6, algo-k, algo-save, sim-new-score, sim-delta), /admin/score (manual-adjust, activate-config-*), /admin/data (data-model-User, data-model-Evaluation, rows clickable, record-drawer with record-tab-details/linked/history + record-edit on editable types, no record-edit on AuditLog read-only), /admin/activity (activity-mine/all toggles).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Employee dashboard", "issues": ["Pre-existing Recharts width(-1)/height(-1) warning on initial render — cosmetic only."]},
+      {"screen": "Admin preview environment", "issues": ["Rate limiter (429) triggers quickly when the admin SPA burst-fetches multiple collections on page nav; harmless in local but will spam logs under preview-proxy shared IP. Already noted in iter_1 as code-review item (trust proxy)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "scoreConfigService.applyConfig uses the full req.body as a draft and spreads it into ScoreConfig; there's no server-side bounds validation (e.g., sensitivityK could be set to -1000). Consider Joi-validating applyConfig payloads mirroring the schema.",
+    "adminDataService.update loads the doc twice (lines 83 and 109 `fresh`); on save, if the user-provided `changes` include a mongoose virtual or a schema-rejected path, the before/after audit will record keys the save silently dropped. Consider validating against allowed Set before setting.",
+    "questionnaireService.scoreAnswers: if requireAll=false and a dimension has no answers, dimsFrom returns the fallback (default 75). That means a half-filled draft eval will carry 75 for untouched dimensions — may be unexpected when the draft is later displayed to admin.",
+    "reportService.lookupForEmployer: uses consent.findCandidate(query) which returns the FIRST match — if query is an ambiguous short string (e.g., 'rahul'), it may match any email containing it. Verify consent.findCandidate uses exact-match on PAN/eibilId/email only (works for the tested exact strings).",
+    "Backend hot-reload is OFF (per the agent-note). Any future admin fix must be followed by `sudo supervisorctl restart backend`.",
+    "The questionnaire admin edit endpoint uses the generic crudService; there's no server-side validation that options points are 0..100 or that at least 2 options exist for mcq/yes_no — the UI validates but the API accepts arbitrary payloads."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100% (70/70)", "frontend": "100% — all required data-testids and flows verified"},
+  "test_credentials": "Used /app/memory/test_credentials.md unchanged (admin@eibil.in / Admin@12345 with 2FA devOtp, hr@acmetech.in / Demo@12345, rahul@demo.in, priya@demo.in, anita@demo.in).",
+  "seed_data_creation": "Reseeded via `node src/seeds/seed.js --reset` before test run. Tests create ephemeral TEST_* prefixed questions and configs; test_apply_config_bumps_version_and_restore restores sensitivityK to its original value (0.6) at end as required.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend suite /app/backend/tests/backend_test.py now 70 tests. New classes added: TestEmployerLookup (lookup by PAN/email/EIBIL ID, credit debit=1, 'view' notification title contains '<company> viewed your EIBIL score', non-existent PAN -> 404, no-PAN candidate -> 400, reports list + re-open does NOT re-charge), TestQuestionnaire (12 defaults with 4 dims + CRUD + mcq switch), TestEvaluationWithAnswers (period 2024-Q2/Q3 fallback), TestAdminAlgorithm (fetch /admin/score/algorithm, apply bumps version, restore sensitivityK, manual-adjust by EIBIL ID -> status 'approved' instantly, score shifts by delta), TestAdminDataExplorer (summary with readOnly flags, list+get with history/linked, EmployeeProfile.currentScore override via /admin/data writes a ledger score event, AuditLog PUT -> 403), TestAdminActivity (?mine=true & all), TestAdminRerate (admin edits accepted evaluation performance via /admin/data/Evaluation/:id). The frontend has correct data-testids for every flow in the problem statement. Rate limit (429) triggers under rapid preview-proxy navigation; add 60-90s sleeps between burst admin flows if re-running the browser tests. Backend has NO hot-reload — must restart after edits.",
+  "rca of the issue": "No defects discovered. All acceptance criteria for consent-removal, questionnaire-driven evaluations, admin algorithm/adjust, record drawer, admin activity, and admin re-rate / score override pass end-to-end at both API and UI layers."
+}

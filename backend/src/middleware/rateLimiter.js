@@ -8,7 +8,7 @@ const make = (windowMs, max, message) => rateLimit({
 });
 
 module.exports = {
-  apiLimiter: make(60 * 1000, 600, 'Too many requests. Slow down'),
+  apiLimiter: make(60 * 1000, 1500, 'Too many requests. Slow down'),
   authLimiter: make(15 * 60 * 1000, 100, 'Too many authentication attempts. Try again later'),
   otpLimiter: make(10 * 60 * 1000, 20, 'Too many code requests. Try again later'),
   panLimiter: make(60 * 60 * 1000, 10, 'Too many PAN attempts from this IP. Try again in an hour'),
