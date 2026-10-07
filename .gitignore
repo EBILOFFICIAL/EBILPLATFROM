@@ -90,3 +90,4 @@ uploads/
 credentials.json
 *.key
 .credentials
+!.env.example
