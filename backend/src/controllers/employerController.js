@@ -1,5 +1,6 @@
 const h = require('../utils/asyncHandler');
 const { ok, created } = require('../utils/response');
+const AppError = require('../utils/AppError');
 const employer = require('../services/employerService');
 const employment = require('../services/employmentService');
 const evaluation = require('../services/evaluationService');
@@ -9,6 +10,12 @@ const Evaluation = require('../models/Evaluation');
 const AuditLog = require('../models/AuditLog');
 
 module.exports = {
+  downloadResume: h(async (req, res) => {
+    if (!(await require('../services/resumeService').employerCanRead(req.employer._id, req.params.id))) throw AppError.forbidden('You can download a resume only for your applicants or candidates whose report you have viewed');
+    const resume = await require('../services/resumeService').read(req.params.id);
+    res.set({ 'Content-Type': resume.mimeType, 'Content-Disposition': `attachment; filename="${resume.fileName.replace(/"/g, '')}"`, 'Content-Length': resume.data.length });
+    res.send(resume.data);
+  }),
   profile: h(async (req, res) => ok(res, { employer: req.employer, membership: req.membership })),
   updateProfile: h(async (req, res) => ok(res, await employer.updateProfile(req.employer, req.body), 'Company profile updated')),
   dashboard: h(async (req, res) => ok(res, await employer.dashboard(req.employer))),

@@ -37,6 +37,17 @@ export const employeeService = {
     a.click();
     URL.revokeObjectURL(url);
   },
+  resume: () => g('/resume'),
+  uploadResume: (file) => { const fd = new FormData(); fd.append('resume', file); return unwrapFull(api.post('/employee/resume', fd)); },
+  async downloadResume() {
+    const res = await fetch(`${API_BASE}/employee/resume/download`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } });
+    if (!res.ok) throw new Error((await res.json()).message);
+    const name = res.headers.get('Content-Disposition')?.split('filename="')[1]?.replace(/"$/, '') || 'resume';
+    const url = URL.createObjectURL(await res.blob());
+    const a = Object.assign(document.createElement('a'), { href: url, download: name });
+    a.click(); URL.revokeObjectURL(url);
+  },
+  deleteResume: () => del('/resume'),
   offers: () => g('/offers'),
   declareOffer: (b) => post('/offers', b),
   offerOtp: (id) => post(`/offers/${id}/accept-otp`),

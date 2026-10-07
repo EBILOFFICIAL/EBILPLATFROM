@@ -3,7 +3,7 @@ import api, { unwrap, unwrapFull } from './api';
 export const jobService = {
   list: (params) => unwrapFull(api.get('/jobs', { params })),
   get: (id) => unwrap(api.get(`/jobs/${id}`)),
-  apply: (id, b) => unwrapFull(api.post(`/jobs/${id}/apply`, b)),
+  apply: (id, fd) => unwrapFull(api.post(`/jobs/${id}/apply`, fd)),
 };
 
 export const publicService = {

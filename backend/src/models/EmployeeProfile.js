@@ -39,6 +39,7 @@ const profileSchema = new mongoose.Schema({
   education: [{ institution: String, degree: String, year: Number }],
   savedJobIds: [{ type: ObjectId, ref: 'Job' }],
   resumeUrl: String,
+  resumeId: { type: ObjectId, ref: 'Resume' },
   deletionRequestedAt: Date,
 }, { timestamps: true });
 

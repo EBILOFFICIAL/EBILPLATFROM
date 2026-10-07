@@ -1,5 +1,6 @@
 const h = require('../utils/asyncHandler');
 const { ok, created } = require('../utils/response');
+const AppError = require('../utils/AppError');
 const employee = require('../services/employeeService');
 const employment = require('../services/employmentService');
 const scoreEvents = require('../services/scoreEventService');
@@ -7,10 +8,27 @@ const disputes = require('../services/disputeService');
 const consent = require('../services/consentService');
 const reports = require('../services/reportService');
 const notifications = require('../services/notificationService');
+const resumes = require('../services/resumeService');
 const Dispute = require('../models/Dispute');
 const Employer = require('../models/Employer');
 
+const sendResume = async (resume, res) => {
+  res.set({ 'Content-Type': resume.mimeType, 'Content-Disposition': `attachment; filename="${resume.fileName.replace(/"/g, '')}"`, 'Content-Length': resume.data.length });
+  res.send(resume.data);
+};
+
 module.exports = {
+  resume: h(async (req, res) => ok(res, await resumes.current(req.profile._id))),
+  uploadResume: h(async (req, res) => {
+    const r = await resumes.setCurrent(req.user, req.file);
+    created(res, { id: r._id, fileName: r.fileName, size: r.size }, 'Resume uploaded. It will be attached to your applications');
+  }),
+  downloadResume: h(async (req, res) => {
+    const current = await resumes.current(req.profile._id);
+    if (!current) throw AppError.notFound('No resume uploaded');
+    await sendResume(await resumes.read(current._id), res);
+  }),
+  deleteResume: h(async (req, res) => { await resumes.remove(req.profile); ok(res, null, 'Resume removed'); }),
   getProfile: h(async (req, res) => ok(res, req.profile)),
   updateProfile: h(async (req, res) => ok(res, await employee.updateProfile(req.user._id, req.body), 'Profile updated')),
   score: h(async (req, res) => ok(res, await employee.scoreSummary(req.profile, req.user))),

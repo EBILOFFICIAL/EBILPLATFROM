@@ -5,7 +5,11 @@ const jobs = require('../services/jobService');
 module.exports = {
   list: h(async (req, res) => { const r = await jobs.publicList(req.query); ok(res, r.items, 'OK', r.meta); }),
   get: h(async (req, res) => ok(res, await jobs.getPublic(req.params.id))),
-  apply: h(async (req, res) => created(res, await jobs.apply(req.profile, req.user, req.params.id, req.body), 'Application submitted with your EIBIL profile')),
+  apply: h(async (req, res) => {
+    const body = { ...req.body };
+    if (typeof body.answers === 'string') body.answers = JSON.parse(body.answers || '[]');
+    created(res, await jobs.apply(req.profile, req.user, req.params.id, body, req.file), 'Application submitted with your EIBIL profile');
+  }),
   myApplications: h(async (req, res) => ok(res, await jobs.myApplications(req.profile._id))),
   toggleSave: h(async (req, res) => ok(res, await jobs.toggleSave(req.profile, req.params.id))),
   saved: h(async (req, res) => ok(res, await jobs.savedJobs(req.profile))),

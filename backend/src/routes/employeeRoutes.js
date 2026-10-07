@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const c = require('../controllers/employeeController');
 const jobs = require('../controllers/jobController');
+const uploads = require('../middleware/uploadMiddleware');
 const v = require('../validators/employeeValidator');
 const { validate } = require('../middleware/validateMiddleware');
 const { authenticate, requireVerifiedEmail } = require('../middleware/authMiddleware');
@@ -28,6 +29,10 @@ router.post('/consents/:id/revoke', c.revokeConsent);
 router.get('/report.pdf', c.reportPdf);
 router.get('/data-export', c.exportData);
 router.post('/deletion-request', c.requestDeletion);
+router.get('/resume', c.resume);
+router.post('/resume', uploads.resume(), c.uploadResume);
+router.get('/resume/download', c.downloadResume);
+router.delete('/resume', c.deleteResume);
 router.get('/notifications', c.notifications);
 router.get('/notifications/unread-count', c.unreadNotifications);
 router.post('/notifications/read', c.readNotifications);

@@ -8,6 +8,8 @@ const settings = require('./settingsService');
 const consent = require('./consentService');
 const notify = require('./notificationService');
 const trust = require('./employerTrustService');
+const resumes = require('./resumeService');
+const User = require('../models/User');
 
 const FIELDS = ['title', 'description', 'location', 'type', 'role', 'skills', 'salaryMin', 'salaryMax', 'experienceMin', 'experienceMax', 'minEibilScore', 'screeningQuestions', 'expiresAt'];
 const pick = (d) => Object.fromEntries(FIELDS.filter((f) => d[f] !== undefined).map((f) => [f, d[f]]));
@@ -60,14 +62,15 @@ async function remove(employer, id) {
   return job.save();
 }
 
-async function apply(profile, user, jobId, { answers, resumeUrl }) {
+async function apply(profile, user, jobId, { answers }, resumeFile) {
   if (!user.emailVerified || !profile.panVerified) throw AppError.forbidden('Verify your email and PAN before applying');
   const job = await Job.findOne({ _id: jobId, status: 'active' });
   if (!job) throw AppError.notFound('Job not open');
   if ((profile.currentScore || 0) < job.minEibilScore) throw AppError.forbidden(`This job requires an EIBIL score of ${job.minEibilScore}+`);
   if (await Application.exists({ jobId, employeeId: profile._id })) throw AppError.conflict('You have already applied');
   const grant = await consent.grantFromApplication(profile._id, job.employerId);
-  const app = await Application.create({ jobId, employerId: job.employerId, employeeId: profile._id, answers, resumeUrl: resumeUrl || profile.resumeUrl, scoreAtApply: profile.currentScore, bandAtApply: profile.band, consentId: grant?._id, history: [{ status: 'applied', by: user._id, at: new Date() }] });
+  const resume = resumeFile ? await resumes.setCurrent(user, resumeFile) : null;
+  const app = await Application.create({ jobId, employerId: job.employerId, employeeId: profile._id, answers, resumeId: resume?._id || profile.resumeId, scoreAtApply: profile.currentScore, bandAtApply: profile.band, consentId: grant?._id, history: [{ status: 'applied', by: user._id, at: new Date() }] });
   job.applicantsCount += 1;
   await job.save();
   await notify.notifyEmployer(job.employerId, { title: 'New applicant', body: `${profile.fullName} applied to ${job.title}`, link: `/employer/jobs/${job._id}` });
@@ -80,7 +83,13 @@ const employerJobs = (employerId) => Job.find({ employerId }).sort({ createdAt: 
 async function applicants(employer, jobId) {
   const job = await Job.findOne({ _id: jobId, employerId: employer._id }).lean();
   if (!job) throw AppError.notFound();
-  const apps = await Application.find({ jobId }).populate('employeeId', 'fullName eibilId currentScore band headline skills experienceYears location').sort({ createdAt: -1 }).lean();
+  const apps = await Application.find({ jobId }).populate('employeeId', 'fullName eibilId currentScore band headline skills experienceYears location userId').populate('resumeId', 'fileName').sort({ createdAt: -1 }).lean();
+  const users = await User.find({ _id: apps.map((a) => a.employeeId?.userId).filter(Boolean) }).select('email mobile').lean();
+  const byId = new Map(users.map((u) => [String(u._id), u]));
+  apps.forEach((a) => {
+    const u = byId.get(String(a.employeeId?.userId));
+    if (a.employeeId) { a.employeeId.email = u?.email; a.employeeId.phone = u?.mobile; a.employeeId.city = a.employeeId.location; }
+  });
   return { job, applicants: apps };
 }
 

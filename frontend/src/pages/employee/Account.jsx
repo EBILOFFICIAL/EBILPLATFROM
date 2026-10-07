@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Trash2 } from 'lucide-react';
+import { Download, FileText, Trash2, Upload } from 'lucide-react';
 import { PageHeader, Panel } from '../../components/common/Layout';
 import Table from '../../components/common/Table';
 import StatusBadge from '../../components/common/StatusBadge';

@@ -6,6 +6,7 @@ const schema = new mongoose.Schema({
   employerId: { type: ObjectId, ref: 'Employer', index: true },
   employeeId: { type: ObjectId, ref: 'EmployeeProfile', required: true, index: true },
   resumeUrl: String,
+  resumeId: { type: ObjectId, ref: 'Resume' },
   answers: [{ question: String, answer: String }],
   scoreAtApply: Number,
   bandAtApply: String,

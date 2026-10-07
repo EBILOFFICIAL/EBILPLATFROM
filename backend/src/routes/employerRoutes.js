@@ -25,6 +25,7 @@ router.post('/verify-candidate/bulk', managers, upload.single('file'), c.bulkVer
 router.get('/consents', c.consents);
 router.post('/consents/:id/otp', hiring, validate(v.consentOtp), c.consentOtp);
 router.post('/reports', hiring, validate(v.generateReport), c.generateReport);
+router.get('/resumes/:id/download', c.downloadResume);
 router.get('/reports', c.reports);
 router.get('/reports/:id', c.getReport);
 router.get('/questionnaire', c.questionnaire);

@@ -56,7 +56,7 @@ async function build(profileId, viewer = {}) {
   return {
     asOf: profile.scoreUpdatedAt || new Date(),
     generatedAt: new Date(),
-    identity: { eibilId: profile.eibilId, fullName: profile.fullName, panMasked: profile.panMasked, panVerified: profile.panVerified, emailVerified: Boolean(user?.emailVerified), mobileVerified: Boolean(user?.mobileVerified), photo: profile.photo },
+    identity: { eibilId: profile.eibilId, fullName: profile.fullName, email: user?.email, phone: user?.mobile, city: profile.location, resumeAvailable: Boolean(profile.resumeId), panMasked: profile.panMasked, panVerified: profile.panVerified, emailVerified: Boolean(user?.emailVerified), mobileVerified: Boolean(user?.mobileVerified), photo: profile.photo },
     score: { value: profile.currentScore, band: profile.band || score.bandFor(profile.currentScore, cfg.bands), range: [cfg.min, cfg.max], frozen: profile.scoreFrozen },
     employment: records.map((r) => ({ company: r.employerId?.companyName || r.companyName, designation: r.designation, department: r.department, startDate: r.startDate, endDate: r.endDate, isCurrent: r.isCurrent, status: r.status, signatureHash: r.signatureHash })),
     evaluationSummary: { count: evals.length, performance: avg(evals, 'performance'), professionalism: avg(evals, 'professionalism'), reliability: avg(evals, 'reliability'), conduct: avg(evals, 'conduct') },
@@ -84,7 +84,7 @@ async function generateForEmployer(employer, user, employeeId, req) {
       body: `${employer.companyName} viewed your verified EIBIL score and report on ${new Date().toLocaleString('en-IN')}.`,
     });
   }
-  return check;
+  return { ...check.toObject(), resumeId: profile.resumeId || null };
 }
 
 async function lookupForEmployer(employer, user, query, req) {

@@ -29,7 +29,8 @@ export function ReportView({ report }) {
   const s = report.snapshot;
   return (<div data-testid="candidate-report" className="card mt-6 p-6">
     <div className="flex flex-wrap items-start justify-between gap-6">
-      <div><h3 className="text-xl font-bold text-ink">{s.identity.fullName}</h3><p className="text-sm text-slate-500">{s.identity.eibilId} · PAN {s.identity.panMasked} · {s.identity.panVerified ? 'PAN verified' : 'PAN unverified'} · Fraud flags: {s.fraudFlags}</p><p className="mt-1 text-xs text-slate-400">Score as of {fmtDateTime(s.asOf)} · Report #{report._id.slice(-6)}</p></div>
+      <div><h3 className="text-xl font-bold text-ink">{s.identity.fullName}</h3><p className="text-sm text-slate-500">{s.identity.eibilId} · PAN {s.identity.panMasked} · {s.identity.panVerified ? 'PAN verified' : 'PAN unverified'} · Fraud flags: {s.fraudFlags}</p><p className="mt-1 text-sm text-slate-600" data-testid="report-contact">{s.identity.email || '—'} · {s.identity.phone || '—'} · {s.identity.city || '—'}</p><p className="mt-1 text-xs text-slate-400">Score as of {fmtDateTime(s.asOf)} · Report #{report._id.slice(-6)}</p>
+      <div className="mt-3 flex gap-2">{report.resumeId ? <Button size="sm" variant="secondary" onClick={() => run(employerService.downloadResume(report.resumeId))} data-testid="report-download-resume"><Download className="h-4 w-4" />Download resume</Button> : <span className="text-xs text-slate-400" data-testid="report-no-resume">No resume on file</span>}</div></div>
       <ScoreGauge score={s.score.value} band={s.score.band} size={200} />
     </div>
     <h4 className="mt-6 text-sm font-bold text-ink">Employment</h4>

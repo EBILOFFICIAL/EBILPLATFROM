@@ -14,6 +14,14 @@ export const employerService = {
   generateReport: (employeeId) => post('/reports', { employeeId }),
   report: (id) => g(`/reports/${id}`),
   reports: () => g('/reports'),
+  async downloadResume(id, fileName = 'resume') {
+    const res = await fetch(`${API_BASE}/employer/resumes/${id}/download`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } });
+    if (!res.ok) throw new Error((await res.json()).message);
+    const name = res.headers.get('Content-Disposition')?.split('filename="')[1]?.replace(/"$/, '') || fileName;
+    const url = URL.createObjectURL(await res.blob());
+    const a = Object.assign(document.createElement('a'), { href: url, download: name });
+    a.click(); URL.revokeObjectURL(url);
+  },
   questionnaire: () => g('/questionnaire'),
   employees: (status) => g('/employees', { status }),
   addEmployee: (b) => post('/employees', b),
