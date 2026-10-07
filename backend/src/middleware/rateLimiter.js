@@ -2,7 +2,7 @@ const rateLimit = require('express-rate-limit');
 
 const make = (windowMs, max, message) => rateLimit({
   windowMs, max, standardHeaders: true, legacyHeaders: false,
-  keyGenerator: (req) => `${req.ip}:${req.user?._id || ''}`,
+  keyGenerator: (req) => `${req.headers['cf-connecting-ip'] || req.ip}:${req.user?._id || ''}`,
   validate: { keyGeneratorIpFallback: false, trustProxy: false, xForwardedForHeader: false },
   handler: (req, res) => res.status(429).json({ success: false, message, data: null }),
 });
